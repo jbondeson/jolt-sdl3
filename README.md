@@ -50,7 +50,8 @@ macOS, your distro's `libsdl3` on Linux). Then depend on this repository:
 
 ```clojure
 {:deps {io.github.jbondeson/jolt-sdl3 {:git/url "https://github.com/jbondeson/jolt-sdl3"
-                                            :git/sha "..."}}}
+                                       :git/tag "v0.1.0"
+                                       :git/sha "9cec563a2d8a111ae4a05045b21e228bfd774a54"}}}
 ;; or, while it lives on disk:
 {:deps {io.github.jbondeson/jolt-sdl3 {:local/root "../jolt-sdl3"}}}
 ```
