@@ -1,0 +1,25 @@
+{;; jolt.ffi/write takes the value before the offset from 0.8.0 on, and :bool
+ ;; returns, [:by-value ...] aggregates and [:union ...] layouts all need a
+ ;; runtime of that generation, so refuse older ones rather than misbehave.
+ :jolt/min-version "0.8.0"
+
+ :paths ["src"]
+
+ ;; libSDL3 is loaded by jolt before any sdl3.* namespace is required, so the
+ ;; bindings resolve. Names are searched on the loader path; the absolute paths
+ ;; cover Homebrew prefixes that are not on it.
+ :jolt/native [{:name "SDL3"
+                :darwin ["libSDL3.0.dylib" "libSDL3.dylib"
+                         "/opt/homebrew/lib/libSDL3.0.dylib"
+                         "/usr/local/lib/libSDL3.0.dylib"]
+                :linux ["libSDL3.so.0" "libSDL3.so"]
+                :windows ["SDL3.dll"]}]
+
+ :aliases {:test {:extra-paths ["test"]
+                  :main-opts ["-m" "sdl3.test-runner"]}
+           :examples {:extra-paths ["examples"]}}
+
+ :tasks {gen    "jolt tools/gen.clj"
+         test   "jolt -M:test"
+         hello  "jolt -M:examples -m examples.hello"
+         bounce "jolt -M:examples -m examples.bounce"}}
