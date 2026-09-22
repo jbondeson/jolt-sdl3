@@ -3,8 +3,13 @@
   non-zero on any failure. `jolt -M:test` or `jolt test`."
   (:require [clojure.test :as t]
             [sdl3.abi-test]
+            [sdl3.audio-test]
             [sdl3.core-test]
             [sdl3.events-test]
+            [sdl3.gpu-test]
+            [sdl3.io-test]
+            [sdl3.joystick-test]
+            [sdl3.properties-test]
             [sdl3.rect-test]
             [sdl3.timer-test]))
 

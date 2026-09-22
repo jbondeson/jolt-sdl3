@@ -54,6 +54,8 @@
       (update :key #(get keycode-names % %))
       (update :mod #(core/unflag c/keymod %))))
 
+(def ^:private hat-names (into {} (map (fn [[k v]] [v k])) c/joystick-hat))
+
 (def ^:private decoders
   ;; event type keyword -> [layout post-fn]
   (let [same (fn [e] e)
@@ -76,7 +78,7 @@
       :mouse-removed [events/mouse-device-event same]
       :joystick-axis-motion [events/joy-axis-event same]
       :joystick-ball-motion [events/joy-ball-event same]
-      :joystick-hat-motion [events/joy-hat-event same]
+      :joystick-hat-motion [events/joy-hat-event (fn [e] (update e :value #(get hat-names % %)))]
       :joystick-button-down [events/joy-button-event same]
       :joystick-button-up [events/joy-button-event same]
       :joystick-added [events/joy-device-event same]

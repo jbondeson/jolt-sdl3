@@ -293,3 +293,117 @@
   vector of strings."
   [p n]
   (mapv (fn [i] (ffi/ptr->string (ffi/read p :pointer (* i (ffi/sizeof :pointer))))) (range n)))
+
+(defn take-ids
+  "Read `n` Uint32 ids from the array at `p` (SDL_GetJoysticks and friends) as a
+  vector, then SDL_free the array. NULL answers []."
+  [p n]
+  (if (or (nil? p) (ffi/null? p))
+    []
+    (let [ids (mapv (fn [i] (ffi/read p :uint32 (* 4 i))) (range n))]
+      (stdinc/free p)
+      ids)))
+
+(defmacro with-count
+  "Call (f ... count-ptr) where SDL answers an array and writes its length through
+  the last argument; answer (take-ids array count) — the ids as a vector:
+
+      (with-count raw/get-joysticks)"
+  [f & args]
+  `(with-outs [n# :int]
+     (let [p# (~f ~@args n#)]
+       (take-ids p# (ffi/read n# :int)))))
+
+;; ---------------------------------------------------------------------------
+;; structs from maps
+;; ---------------------------------------------------------------------------
+
+(defn write-fields!
+  "Write the entries of map `m` into the struct `layout` at pointer `p`, field by
+  field, leaving every field `m` does not name as it is — zero, in memory from
+  ffi/alloc. A map value writes a nested struct by path. Answers p.
+
+  SDL's create-info structs are mostly zero-means-default, so this is how the
+  wrappers let a caller name only what they care about."
+  ([p layout m] (write-fields! p layout [] m))
+  ([p layout path m]
+   (doseq [[k v] m]
+     (let [path' (conj path k)]
+       (cond
+         (map? v) (write-fields! p layout path' v)
+         ;; a :float field refuses 640 and an integer field refuses 3.0; the
+         ;; field's current value (zero) has its type, so coerce to that
+         (number? v) (let [cur (ffi/read-field p layout path')]
+                       (ffi/write-field p layout path'
+                                        (cond (double? cur) (double v)
+                                              (and (integer? cur) (not (integer? v)))
+                                              (if (== v (Math/floor v))
+                                                (long v)
+                                                (throw (ex-info (str "field " path' " is an integer; got " v) {:path path' :value v})))
+                                              :else v)))
+         :else (ffi/write-field p layout path' v))))
+   p))
+
+(defn alloc-fields
+  "Allocate one `layout` in `arena`, zeroed, and write-fields! `m` into it."
+  [arena layout m]
+  (write-fields! (ffi/alloc arena layout) layout m))
+
+(defn alloc-array
+  "Allocate `layout` x (count ms) contiguously in `arena` and write-fields! each
+  map of `ms` into its slot; answers [pointer count]. Empty answers [NULL 0]."
+  [arena layout ms]
+  (let [n (count ms)]
+    (if (zero? n)
+      [ffi/null 0]
+      (let [size (ffi/layout-size layout)
+            p (ffi/alloc arena (* n size))]
+        (doseq [[i m] (map-indexed vector ms)]
+          (write-fields! (ffi/slice p (* i size)) layout m))
+        [p n]))))
+
+(defn alloc-pointers
+  "A contiguous array of the pointers `ps` in `arena`, for SDL's `T *const *`
+  arguments; answers [pointer count]."
+  [arena ps]
+  (let [n (count ps)]
+    (if (zero? n)
+      [ffi/null 0]
+      (let [w (ffi/sizeof :pointer)
+            p (ffi/alloc arena (* n w))]
+        (doseq [[i x] (map-indexed vector ps)]
+          (ffi/write p :pointer x (* i w)))
+        [p n]))))
+
+(defn bytes->ptr
+  "Copy the byte-array `bs` into `arena`; answers [pointer length]."
+  [arena bs]
+  (let [n (alength bs)
+        p (ffi/alloc arena (max 1 n))]
+    (when (pos? n) (ffi/write-array p bs))
+    [p n]))
+
+(defn prop-name
+  "A property name: a keyword from sdl3.consts/prop, or the SDL string itself."
+  [k]
+  (if (keyword? k) (enum c/prop k) k))
+
+(defn array->ptr
+  "[pointer byte-length] of `data` copied into `arena`: a byte-, float-, short-,
+  int- or long-array (native byte order). A [pointer length] pair passes through."
+  [arena data]
+  (cond
+    (and (vector? data) (= 2 (count data))) data
+    (bytes? data) (bytes->ptr arena data)
+    :else
+    (let [[t w] (cond (instance? (class (float-array 0)) data) [:float 4]
+                      (instance? (class (short-array 0)) data) [:int16 2]
+                      (instance? (class (int-array 0)) data) [:int32 4]
+                      (instance? (class (long-array 0)) data) [:int64 8]
+                      (instance? (class (double-array 0)) data) [:double 8]
+                      :else (throw (ex-info "expected a byte-, float-, short-, int-, long- or double-array, or [pointer length]"
+                                            {:got (type data)})))
+          n (* w (alength data))
+          p (ffi/alloc arena (max 1 n))]
+      (when (pos? n) (ffi/write-array p t data))
+      [p n])))

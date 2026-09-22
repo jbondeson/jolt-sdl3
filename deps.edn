@@ -22,4 +22,6 @@
  :tasks {gen    "jolt tools/gen.clj"
          test   "jolt -M:test"
          hello  "jolt -M:examples -m examples.hello"
-         bounce "jolt -M:examples -m examples.bounce"}}
+         bounce "jolt -M:examples -m examples.bounce"
+         gpu-clear "jolt -M:examples -m examples.gpu-clear"
+         tone "jolt -M:examples -m examples.tone"}}

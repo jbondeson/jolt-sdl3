@@ -11,9 +11,10 @@ Two layers:
   the equivalent of [thunderchez](https://github.com/ovenpasta/thunderchez)'s SDL2 layer.
 - **`sdl3.*`** — hand-written, idiomatic: failures become exceptions carrying
   `SDL_GetError`, flags and enums are keywords, events decode to maps, rects are maps.
-  Covers what a 2D program needs: init, video, render, events, keyboard, mouse, rect,
-  surface, timer, log, messagebox, clipboard, filesystem. Everything else (audio, gamepad,
-  GPU, ...) is reachable through `sdl3.raw.*` today and is where the idiomatic layer grows.
+  Covers init, video, render, events, keyboard, mouse, rect, surface, timer, log,
+  messagebox, clipboard, filesystem, audio, joystick, gamepad, GPU, IO streams and
+  properties. The rest (camera, haptic, sensor, storage, tray, dialogs ...) is
+  reachable through `sdl3.raw.*` and is where the idiomatic layer grows next.
 
 ```clojure
 (ns app.core
@@ -55,8 +56,8 @@ macOS, your distro's `libsdl3` on Linux). Then depend on this repository:
 `deps.edn` here declares `libSDL3` under `:jolt/native`; Jolt loads it before any
 `sdl3.*` namespace is required, in your project too. Nothing else to configure.
 
-Tasks (`jolt <task>`): `test` runs the suite headlessly, `hello` and `bounce` run the
-examples, `gen` regenerates the raw layer from the installed headers.
+Tasks (`jolt <task>`): `test` runs the suite headlessly; `hello`, `bounce`, `gpu-clear`
+and `tone` run the examples; `gen` regenerates the raw layer from the installed headers.
 
 ## Conventions
 
@@ -105,11 +106,73 @@ copy them into a scratch cell per call, so a frame of a few hundred rects alloca
 nothing on the Jolt side; the plural calls (`fill-rects!`, `draw-lines!`) also take the
 `[pointer count]` pair `sdl3.rect/frects` builds once in an arena, for the hot path.
 
-**Callbacks.** `sdl3.timer/add-timer!` and `sdl3.log/set-output-function!` wrap a Clojure
-fn as a `:collect-safe` C callback, since SDL calls both from threads Jolt did not
-start. Keep them short and hand work to the main loop with `sdl3.events/push-event!`.
-Other callback-taking functions (`SDL_AddEventWatch`, `SDL_SetWindowHitTest`, audio
-streams) are in the raw layer; wrap them with `jolt.ffi/callback` the same way.
+**Callbacks.** `sdl3.timer/add-timer!`, `sdl3.log/set-output-function!` and the audio
+stream callbacks wrap a Clojure fn as a `:collect-safe` C callback, since SDL calls them
+from threads Jolt did not start. Keep them short and hand work to the main loop with
+`sdl3.events/push-event!` or an atom. Callbacks SDL makes on the calling thread
+(`sdl3.io/open-io`, `sdl3.properties/keys`) are plain. The remaining callback-taking
+functions (`SDL_AddEventWatch`, `SDL_SetWindowHitTest`, ...) are in the raw layer; wrap
+them with `jolt.ffi/callback` the same way.
+
+**Structs as maps.** Create-info structs (the GPU's, virtual joysticks) take a map naming
+only the fields you care about; the rest are zero, which SDL reads as the default. Numbers
+are coerced to the field's type, nested structs are nested maps, and arrays SDL takes
+with a separate count are vectors of maps. `sdl3.core/alloc-fields` and `alloc-array`
+do this for any layout in the raw layer.
+
+## Audio, input, GPU, streams and properties
+
+```clojure
+(require '[sdl3.audio :as audio] '[sdl3.gamepad :as gp] '[sdl3.gpu :as gpu]
+         '[sdl3.io :as io] '[sdl3.properties :as props])
+
+;; audio: streams convert between specs; bind one to a device and put! samples
+(let [s (audio/open-device-stream :playback {:format :f32 :channels 1 :freq 48000})]
+  (audio/put! s (float-array 48000))            ; or a callback: (open-device-stream d spec f)
+  (audio/resume-stream-device! s))
+(audio/load-wav "boom.wav")                     ;=> {:spec {:format :s16 :channels 2 :freq 44100} :data #bytes}
+
+;; gamepads: controls named by position, events decoded by sdl3.events
+(let [g (gp/open (first (gp/gamepads)))]
+  (gp/button? g :south)                         ;=> true
+  (gp/axis-normalized g :leftx)                 ;=> -0.25
+  (gp/button-label g :south)                    ;=> :cross on a PlayStation pad
+  (gp/rumble! g 0 30000 200))
+
+;; GPU: create-infos as maps, keywords for enums
+(let [dev (gpu/create-device {:shader-formats [:spirv :msl :dxil]})
+      buf (gpu/create-buffer dev {:usage :vertex :size 24})]
+  (gpu/upload! dev buf (float-array [-1 -1 3 -1 -1 3]))
+  (gpu/create-texture dev {:format :r8g8b8a8-unorm :usage [:sampler] :width 256 :height 256}))
+
+;; IO streams: files, memory, or Clojure functions
+(io/with-io [s (io/from-file "save.dat" "wb")]
+  (io/write-num! s :u32-le 42))
+(io/load-file "level.bin")                      ;=> byte-array
+
+;; properties: typed values, keyword or string names
+(props/with-properties [p {:window-create-title-string "hi"
+                           :window-create-width-number 640
+                           :window-create-height-number 480}]
+  (sdl3.video/create-window-with-properties p))
+```
+
+- **`sdl3.audio`**: drivers and devices, streams with put/get in any format and get/put
+  callbacks, WAV loading, sample conversion and mixing.
+- **`sdl3.joystick`**: numbered axes, buttons, hats and balls; rumble and LEDs; virtual
+  joysticks for tests and input injection.
+- **`sdl3.gamepad`**: named controls and state snapshots, button labels, mappings,
+  touchpads, sensors, rumble.
+- **`sdl3.gpu`**: devices, swapchains, every resource and pipeline, render, compute and
+  copy passes, fences, plus `upload!`, `upload-texture!`, `download` and
+  `download-texture` for one-off copies. Shaders are not compiled here; hand
+  `create-shader` SPIR-V, MSL, DXIL or DXBC.
+- **`sdl3.io`**: file and memory streams, typed little/big-endian numbers, whole-file
+  load and save, and `open-io` for streams backed by Clojure functions.
+- **`sdl3.properties`**: groups as maps in and out, typed `put!` and `get`.
+
+The headless suite drives joysticks and gamepads through virtual devices, audio through
+SDL's dummy driver, and on Metal compiles and runs an MSL shader pipeline.
 
 ## The raw layer
 
@@ -173,9 +236,10 @@ deps.edn            :jolt/native libSDL3, tasks
 tools/gen.clj       the generator
 src/sdl3/core.clj   errors, defsdl, flags, init/quit, hints   (start here)
 src/sdl3/{video,render,events,keyboard,mouse,rect,surface,timer,log,messagebox,clipboard,filesystem}.clj
+src/sdl3/{audio,joystick,gamepad,gpu,io,properties}.clj
 src/sdl3/consts.clj (generated)
 src/sdl3/raw/       (generated)
-examples/           hello, bounce
+examples/           hello, bounce, gpu-clear, tone
 test/sdl3/          headless suite; test_runner.clj is the -main
 ```
 
