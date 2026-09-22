@@ -281,3 +281,12 @@ test/sdl3/          headless suite; test_runner.clj is the -main
   of the `sdl3.*` namespaces for the pattern, and `sdl3.core/defsdl` for the options.
 - Licensed under the zlib license (see LICENSE), the same as SDL; the generated files
   carry SDL's notice there.
+
+## AI use disclosure
+
+This library was written with AI assistance, using Anthropic's Claude Fable 5.1 and
+Claude Opus 5.5 through Claude Code. The models wrote the binding generator
+(`tools/gen.clj`), the idiomatic `sdl3.*` namespaces, the tests, the examples and this
+README. The raw layer under `src/sdl3/raw/` and `src/sdl3/consts.clj` is produced
+mechanically by the generator from the SDL3 headers, and its struct layouts are checked
+against the C compiler by `test/sdl3/abi_test.clj`.
