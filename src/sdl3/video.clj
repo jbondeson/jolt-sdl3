@@ -8,7 +8,9 @@
             [sdl3.core :as core :refer [defsdl with-outs]]
             [sdl3.consts :as c]
             [sdl3.rect :as rect]
-            [sdl3.raw.video :as video]))
+            [sdl3.raw.video :as video]
+            [sdl3.raw.metal :as metal]
+            [sdl3.raw.vulkan :as vulkan]))
 
 ;; ---------------------------------------------------------------------------
 ;; windows
@@ -263,3 +265,62 @@
   (with-outs [v :int]
     (core/check-bool "SDL_GL_GetSwapInterval" (video/gl-get-swap-interval v))
     (ffi/read v :int)))
+
+;; ---------------------------------------------------------------------------
+;; Metal and Vulkan
+;; ---------------------------------------------------------------------------
+
+(defn metal-create-view
+  "SDL_Metal_CreateView: a Metal view for `win` (created with :metal); its layer is
+  the CAMetalLayer to render into. Destroy it with metal-destroy-view!."
+  [win]
+  (core/check-ptr "SDL_Metal_CreateView" (metal/metal-create-view win)))
+
+(defn metal-destroy-view! [view] (metal/metal-destroy-view view) nil)
+
+(defn metal-layer
+  "SDL_Metal_GetLayer: the view's CAMetalLayer pointer."
+  [view]
+  (core/check-ptr "SDL_Metal_GetLayer" (metal/metal-get-layer view)))
+
+(defn vulkan-load-library!
+  "SDL_Vulkan_LoadLibrary: load the Vulkan loader (nil: the default), before
+  creating a :vulkan window."
+  ([] (vulkan-load-library! nil))
+  ([path] (core/check-bool "SDL_Vulkan_LoadLibrary" (vulkan/vulkan-load-library path)) nil))
+
+(defn vulkan-unload-library! [] (vulkan/vulkan-unload-library) nil)
+
+(defn vulkan-get-instance-proc-addr
+  "The loader's vkGetInstanceProcAddr, for bootstrapping a Vulkan binding."
+  []
+  (core/check-ptr "SDL_Vulkan_GetVkGetInstanceProcAddr" (vulkan/vulkan-get-vk-get-instance-proc-addr)))
+
+(defn vulkan-instance-extensions
+  "SDL_Vulkan_GetInstanceExtensions: the instance extensions a surface needs, as strings."
+  []
+  (with-outs [n :uint32]
+    (let [p (core/check-ptr "SDL_Vulkan_GetInstanceExtensions" (vulkan/vulkan-get-instance-extensions n))]
+      ;; the array belongs to SDL: read it, do not free it
+      (core/read-strings p (ffi/read n :uint32)))))
+
+(defn vulkan-create-surface
+  "SDL_Vulkan_CreateSurface: a VkSurfaceKHR handle for `win` on VkInstance
+  `instance` (allocator: a VkAllocationCallbacks pointer or nil)."
+  ([win instance] (vulkan-create-surface win instance nil))
+  ([win instance allocator]
+   (with-outs [s :uint64]
+     (core/check-bool "SDL_Vulkan_CreateSurface"
+                      (vulkan/vulkan-create-surface win instance (or allocator ffi/null) s))
+     (ffi/read s :uint64))))
+
+(defn vulkan-destroy-surface!
+  ([instance surface] (vulkan-destroy-surface! instance surface nil))
+  ([instance surface allocator]
+   (vulkan/vulkan-destroy-surface instance surface (or allocator ffi/null))
+   nil))
+
+(defn vulkan-presentation-support?
+  "SDL_Vulkan_GetPresentationSupport: can queue family `family` of `physical-device` present?"
+  [instance physical-device family]
+  (vulkan/vulkan-get-presentation-support instance physical-device (int family)))

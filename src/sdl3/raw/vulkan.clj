@@ -29,3 +29,18 @@
   "char const * const * SDL_Vulkan_GetInstanceExtensions(Uint32 * count)"
   {:arglists '([count]) :sdl/c "SDL_Vulkan_GetInstanceExtensions" :sdl/args [:pointer] :sdl/ret :pointer}
   "SDL_Vulkan_GetInstanceExtensions" [:pointer] :pointer)
+
+(ffi/defcfn vulkan-create-surface
+  "bool SDL_Vulkan_CreateSurface(SDL_Window * window, VkInstance instance, const struct VkAllocationCallbacks * allocator, VkSurfaceKHR * surface)"
+  {:arglists '([window instance allocator surface]) :sdl/c "SDL_Vulkan_CreateSurface" :sdl/args [:pointer :pointer :pointer :pointer] :sdl/ret :bool}
+  "SDL_Vulkan_CreateSurface" [:pointer :pointer :pointer :pointer] :bool)
+
+(ffi/defcfn vulkan-destroy-surface
+  "void SDL_Vulkan_DestroySurface(VkInstance instance, VkSurfaceKHR surface, const struct VkAllocationCallbacks * allocator)"
+  {:arglists '([instance surface allocator]) :sdl/c "SDL_Vulkan_DestroySurface" :sdl/args [:pointer :pointer :pointer] :sdl/ret :void}
+  "SDL_Vulkan_DestroySurface" [:pointer :pointer :pointer] :void)
+
+(ffi/defcfn vulkan-get-presentation-support
+  "bool SDL_Vulkan_GetPresentationSupport(VkInstance instance, VkPhysicalDevice physicalDevice, Uint32 queueFamilyIndex)"
+  {:arglists '([instance physical-device queue-family-index]) :sdl/c "SDL_Vulkan_GetPresentationSupport" :sdl/args [:pointer :pointer :uint32] :sdl/ret :bool}
+  "SDL_Vulkan_GetPresentationSupport" [:pointer :pointer :uint32] :bool)

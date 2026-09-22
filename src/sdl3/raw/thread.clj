@@ -10,16 +10,6 @@
 
 ;; ---- functions -----------------------------------------------------------
 
-(ffi/defcfn create-thread
-  "SDL_Thread * SDL_CreateThread(SDL_ThreadFunction fn, const char * name, void * data)"
-  {:arglists '([fn name data]) :sdl/c "SDL_CreateThread" :sdl/args [:pointer :string :pointer] :sdl/ret :pointer}
-  "SDL_CreateThread" [:pointer :string :pointer] :pointer)
-
-(ffi/defcfn create-thread-with-properties
-  "SDL_Thread * SDL_CreateThreadWithProperties(SDL_PropertiesID props)"
-  {:arglists '([props]) :sdl/c "SDL_CreateThreadWithProperties" :sdl/args [:uint32] :sdl/ret :pointer}
-  "SDL_CreateThreadWithProperties" [:uint32] :pointer)
-
 (ffi/defcfn create-thread-runtime
   "SDL_Thread * SDL_CreateThreadRuntime(SDL_ThreadFunction fn, const char * name, void * data, SDL_FunctionPointer pfnBeginThread, SDL_FunctionPointer pfnEndThread)"
   {:arglists '([fn name data pfn-begin-thread pfn-end-thread]) :sdl/c "SDL_CreateThreadRuntime" :sdl/args [:pointer :string :pointer :pointer :pointer] :sdl/ret :pointer}

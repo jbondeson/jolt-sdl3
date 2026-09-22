@@ -91,7 +91,7 @@
   "SDL_SetSurfaceColorKey: the pixel value (from map-rgb) treated as transparent
   when blitting, or nil to disable."
   [s key]
-  (core/check-bool "SDL_SetSurfaceColorKey" (surface/set-surface-color-key s (boolean key) (int (or key 0))))
+  (core/check-bool "SDL_SetSurfaceColorKey" (surface/set-surface-color-key s (boolean key) (or key 0)))
   nil)
 
 (defn color-key [s]
@@ -175,13 +175,13 @@
   "SDL_FillSurfaceRect with pixel value `color` (from map-rgb); `r` nil fills all."
   [s r color]
   (with-open [a (ffi/confined-arena)]
-    (core/check-bool "SDL_FillSurfaceRect" (surface/fill-surface-rect s (if r (rect/alloc-rect a r) ffi/null) (int color))))
+    (core/check-bool "SDL_FillSurfaceRect" (surface/fill-surface-rect s (if r (rect/alloc-rect a r) ffi/null) color)))
   nil)
 
 (defn fill-rects! [s rs color]
   (with-open [a (ffi/confined-arena)]
     (let [[p n] (rect/rects a rs)]
-      (core/check-bool "SDL_FillSurfaceRects" (surface/fill-surface-rects s p n (int color)))))
+      (core/check-bool "SDL_FillSurfaceRects" (surface/fill-surface-rects s p n color))))
   nil)
 
 ;; ---------------------------------------------------------------------------

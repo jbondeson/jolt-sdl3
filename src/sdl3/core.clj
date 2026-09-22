@@ -94,6 +94,8 @@
                (and (= ret :bool) (not pred)) `(check-bool ~c ~call)
                (and (= ret :pointer) (not nullable)) `(check-ptr ~c ~call)
                (and (= ret :pointer) nullable) `(nullable ~call)
+               ;; a void C function answers Chez's void object; answer nil instead
+               (= ret :void) `(do ~call nil)
                :else call)
         docstring (str (when doc (str doc "\n\n  ")) (:doc m))]
     `(defn ~(with-meta name {:sdl/c c})

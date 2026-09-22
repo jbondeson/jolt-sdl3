@@ -6,15 +6,17 @@ built on `jolt.ffi` — no JVM, no JNI, no C shim.
 Two layers:
 
 - **`sdl3.raw.*`** — generated, one namespace per SDL header, one `jolt.ffi/defcfn` per
-  exported C function (1255 of the 1265 in SDL 3.4.16) plus an `ffi/layout` for every
+  exported C function (1256 of the 1265 in SDL 3.4.16) plus an `ffi/layout` for every
   struct and union (120, `SDL_Event` included). Nothing is checked or converted; this is
   the equivalent of [thunderchez](https://github.com/ovenpasta/thunderchez)'s SDL2 layer.
 - **`sdl3.*`** — hand-written, idiomatic: failures become exceptions carrying
   `SDL_GetError`, flags and enums are keywords, events decode to maps, rects are maps.
   Covers init, video, render, events, keyboard, mouse, rect, surface, timer, log,
   messagebox, clipboard, filesystem, audio, joystick, gamepad, haptic, sensor, camera,
-  GPU, IO streams, storage, properties, tray and file dialogs. The rest (threads and
-  atomics, processes, locale, power, HID, ...) is reachable through `sdl3.raw.*`.
+  GPU, IO streams, async IO, storage, properties, tray, file dialogs, threads and
+  atomics, processes, HID, pixel formats, calendar time, touch, and system queries
+  (CPU, locale, power, URLs, shared objects). Only `SDL_main.h` (C's entry point) and
+  `SDL_stdinc.h` (SDL's libc) are left to `sdl3.raw.*`.
 
 ```clojure
 (ns app.core
@@ -180,6 +182,17 @@ do this for any layout in the raw layer.
 - **`sdl3.tray`**: tray icons and menus, built from data with `build-menu!`.
 - **`sdl3.dialog`**: native open, save and folder dialogs, answered through a callback
   or a promise (keep pumping events until it arrives).
+- **`sdl3.thread`**: SDL threads running Clojure fns (their value or exception comes back
+  from `wait-thread!`), mutexes, read-write locks, semaphores, conditions, and atomics in
+  native memory — for sharing with C; plain Jolt code should use Jolt's own.
+- **`sdl3.process`**: child processes with piped or inherited stdio, environment and
+  working directory, and `sh` for run-to-completion.
+- **`sdl3.asyncio`**: queued async reads, writes and whole-file loads with tagged results.
+- **`sdl3.hid`**: raw HID enumeration, reports and strings.
+- **`sdl3.system`**, **`sdl3.time`**, **`sdl3.touch`**, **`sdl3.pixels`**: CPU and memory,
+  locales, battery, URLs and shared objects; calendar date-times; touch devices and pens;
+  pixel formats and palettes. `sdl3.render/compose-blend-mode` and the Metal and Vulkan
+  helpers in `sdl3.video` round out the rest.
 
 The headless suite drives joysticks and gamepads through virtual devices, audio through
 SDL's dummy driver, storage through a temporary directory and tray menus through
@@ -215,8 +228,10 @@ Two things to know about calling raw bindings directly:
 - A binding for a function the loaded libSDL3 lacks (an older SDL3 than the headers
   the code was generated from) loads fine and raises only when called.
 
-Not bound: the 7 `va_list` variants (`SDL_LogMessageV`, `SDL_vsnprintf`, ...) and the
-3 `SDL_Vulkan_*` functions taking Vulkan handle types.
+Not bound: the 7 `va_list` variants (`SDL_LogMessageV`, `SDL_vsnprintf`, ...), which
+Jolt cannot construct, and `SDL_CreateThread` and `SDL_CreateThreadWithProperties`, which
+are header macros over the `...Runtime` functions that are bound. Vulkan handle types
+(`VkInstance`, `VkSurfaceKHR`) bind as `:pointer`, which is their size on 64-bit targets.
 
 ## Regenerating
 
@@ -251,6 +266,7 @@ src/sdl3/core.clj   errors, defsdl, flags, init/quit, hints   (start here)
 src/sdl3/{video,render,events,keyboard,mouse,rect,surface,timer,log,messagebox,clipboard,filesystem}.clj
 src/sdl3/{audio,joystick,gamepad,gpu,io,properties}.clj
 src/sdl3/{camera,haptic,sensor,storage,tray,dialog}.clj
+src/sdl3/{thread,process,asyncio,hid,system,time,touch,pixels}.clj
 src/sdl3/consts.clj (generated)
 src/sdl3/raw/       (generated)
 examples/           hello, bounce, gpu-clear, tone, tray

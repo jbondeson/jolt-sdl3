@@ -75,6 +75,13 @@
 ;; emitter drops the marker there (SDL_ShowSimpleMessageBox is the notable one).
 (def blocking-re #"^SDL_(Wait\w*|Delay\w*|LockMutex|LockRWLockForReading|LockRWLockForWriting|RunApp|SyncWindow|ReadProcess|ShowMessageBox|ShowSimpleMessageBox)$")
 
+;; declared in the headers but exported only as macros over another symbol, so
+;; there is nothing to bind: SDL_CreateThread(fn, name, data) expands to
+;; SDL_CreateThreadRuntime(fn, name, data, begin, end)
+(def macro-only-functions
+  {"SDL_CreateThread" "a macro over SDL_CreateThreadRuntime"
+   "SDL_CreateThreadWithProperties" "a macro over SDL_CreateThreadWithPropertiesRuntime"})
+
 (def struct-name-overrides
   {"SDL_FRect" "frect" "SDL_FPoint" "fpoint" "SDL_FColor" "fcolor"})
 
@@ -225,6 +232,8 @@
       (aliases base) (aliases base)
       (enums base) :int
       (fnptrs base) :pointer
+      ;; Vulkan handles (VkInstance, VkSurfaceKHR, ...) are pointer-sized on 64-bit targets
+      (str/starts-with? base "Vk") :pointer
       (ptrs base) :pointer
       (structs base) (cond
                        (and (= pos :field) (get layouts base)) (get layouts base)
@@ -405,7 +414,8 @@
   (let [name (or (fn-name-overrides c) (c->clj c))
         rt (c-type->kw types ret :ret)
         pts (map #(c-type->kw types (:type %) :param) params)
-        skip (first (filter #(and (vector? %) (= :skip (first %))) (cons rt pts)))]
+        skip (or (when-let [why (macro-only-functions c)] [:skip why])
+                 (first (filter #(and (vector? %) (= :skip (first %))) (cons rt pts))))]
     (if skip
       {:skip [c (second skip)]}
       (let [argtypes (vec pts)

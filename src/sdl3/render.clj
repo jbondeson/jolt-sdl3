@@ -18,7 +18,8 @@
             [sdl3.core :as core :refer [defsdl with-outs]]
             [sdl3.consts :as c]
             [sdl3.rect :as rect]
-            [sdl3.raw.render :as render]))
+            [sdl3.raw.render :as render]
+            [sdl3.raw.blendmode :as blendmode]))
 
 ;; ---------------------------------------------------------------------------
 ;; renderers
@@ -444,3 +445,23 @@
   (with-outs [wx :float wy :float]
     (core/check-bool "SDL_RenderCoordinatesToWindow" (render/render-coordinates-to-window ren (double x) (double y) wx wy))
     [(ffi/read wx :float) (ffi/read wy :float)]))
+
+;; ---------------------------------------------------------------------------
+;; custom blend modes
+;; ---------------------------------------------------------------------------
+
+(defn compose-blend-mode
+  "SDL_ComposeCustomBlendMode: a blend mode integer, usable wherever a blend mode
+  keyword is, from
+
+    {:src-color-factor :src-alpha :dst-color-factor :one-minus-src-alpha :color-operation :add
+     :src-alpha-factor :one :dst-alpha-factor :one-minus-src-alpha :alpha-operation :add}
+
+  Factors from sdl3.consts/blend-factor, operations from sdl3.consts/blend-operation.
+  Not every renderer supports every combination; setting an unsupported one raises."
+  [{:keys [src-color-factor dst-color-factor color-operation src-alpha-factor dst-alpha-factor alpha-operation]}]
+  (let [bf #(core/enum c/blend-factor %)
+        bo #(core/enum c/blend-operation %)]
+    (blendmode/compose-custom-blend-mode
+     (bf src-color-factor) (bf dst-color-factor) (bo color-operation)
+     (bf src-alpha-factor) (bf dst-alpha-factor) (bo alpha-operation))))
