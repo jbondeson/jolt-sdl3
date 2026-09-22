@@ -5,13 +5,16 @@
             [sdl3.abi-test]
             [sdl3.audio-test]
             [sdl3.core-test]
+            [sdl3.devices-test]
             [sdl3.events-test]
             [sdl3.gpu-test]
             [sdl3.io-test]
             [sdl3.joystick-test]
             [sdl3.properties-test]
             [sdl3.rect-test]
-            [sdl3.timer-test]))
+            [sdl3.storage-test]
+            [sdl3.timer-test]
+            [sdl3.tray-dialog-test]))
 
 (defn -main [& _]
   (let [{:keys [fail error]} (t/run-all-tests #"sdl3\..*-test")]

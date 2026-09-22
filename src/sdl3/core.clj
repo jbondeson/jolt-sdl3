@@ -331,6 +331,8 @@
      (let [path' (conj path k)]
        (cond
          (map? v) (write-fields! p layout path' v)
+         ;; an array field is written element by element: [:dir 0], [:dir 1] ...
+         (sequential? v) (write-fields! p layout path' (zipmap (range) v))
          ;; a :float field refuses 640 and an integer field refuses 3.0; the
          ;; field's current value (zero) has its type, so coerce to that
          (number? v) (let [cur (ffi/read-field p layout path')]

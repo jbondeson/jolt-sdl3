@@ -12,9 +12,9 @@ Two layers:
 - **`sdl3.*`** — hand-written, idiomatic: failures become exceptions carrying
   `SDL_GetError`, flags and enums are keywords, events decode to maps, rects are maps.
   Covers init, video, render, events, keyboard, mouse, rect, surface, timer, log,
-  messagebox, clipboard, filesystem, audio, joystick, gamepad, GPU, IO streams and
-  properties. The rest (camera, haptic, sensor, storage, tray, dialogs ...) is
-  reachable through `sdl3.raw.*` and is where the idiomatic layer grows next.
+  messagebox, clipboard, filesystem, audio, joystick, gamepad, haptic, sensor, camera,
+  GPU, IO streams, storage, properties, tray and file dialogs. The rest (threads and
+  atomics, processes, locale, power, HID, ...) is reachable through `sdl3.raw.*`.
 
 ```clojure
 (ns app.core
@@ -56,8 +56,8 @@ macOS, your distro's `libsdl3` on Linux). Then depend on this repository:
 `deps.edn` here declares `libSDL3` under `:jolt/native`; Jolt loads it before any
 `sdl3.*` namespace is required, in your project too. Nothing else to configure.
 
-Tasks (`jolt <task>`): `test` runs the suite headlessly; `hello`, `bounce`, `gpu-clear`
-and `tone` run the examples; `gen` regenerates the raw layer from the installed headers.
+Tasks (`jolt <task>`): `test` runs the suite headlessly; `hello`, `bounce`, `gpu-clear`,
+`tone` and `tray` run the examples; `gen` regenerates the raw layer from the installed headers.
 
 ## Conventions
 
@@ -120,7 +120,7 @@ are coerced to the field's type, nested structs are nested maps, and arrays SDL 
 with a separate count are vectors of maps. `sdl3.core/alloc-fields` and `alloc-array`
 do this for any layout in the raw layer.
 
-## Audio, input, GPU, streams and properties
+## Audio, input, GPU, storage and the desktop
 
 ```clojure
 (require '[sdl3.audio :as audio] '[sdl3.gamepad :as gp] '[sdl3.gpu :as gpu]
@@ -170,9 +170,22 @@ do this for any layout in the raw layer.
 - **`sdl3.io`**: file and memory streams, typed little/big-endian numbers, whole-file
   load and save, and `open-io` for streams backed by Clojure functions.
 - **`sdl3.properties`**: groups as maps in and out, typed `put!` and `get`.
+- **`sdl3.haptic`**: force-feedback effects as maps (`{:type :sine :period 100 ...}`),
+  simple rumble, gain and autocenter.
+- **`sdl3.sensor`**: device accelerometers and gyroscopes.
+- **`sdl3.camera`**: cameras, their formats and permission state, frames as surfaces
+  (`with-frame`).
+- **`sdl3.storage`**: title, user and directory containers with read, write, list,
+  glob and path info.
+- **`sdl3.tray`**: tray icons and menus, built from data with `build-menu!`.
+- **`sdl3.dialog`**: native open, save and folder dialogs, answered through a callback
+  or a promise (keep pumping events until it arrives).
 
 The headless suite drives joysticks and gamepads through virtual devices, audio through
-SDL's dummy driver, and on Metal compiles and runs an MSL shader pipeline.
+SDL's dummy driver, storage through a temporary directory and tray menus through
+simulated clicks, and on Metal compiles and runs an MSL shader pipeline. Cameras, haptics
+and sensors are only enumerated, since opening them needs hardware or permission, and
+dialogs wait for a person, so the `tray` example is where to try them.
 
 ## The raw layer
 
@@ -237,9 +250,10 @@ tools/gen.clj       the generator
 src/sdl3/core.clj   errors, defsdl, flags, init/quit, hints   (start here)
 src/sdl3/{video,render,events,keyboard,mouse,rect,surface,timer,log,messagebox,clipboard,filesystem}.clj
 src/sdl3/{audio,joystick,gamepad,gpu,io,properties}.clj
+src/sdl3/{camera,haptic,sensor,storage,tray,dialog}.clj
 src/sdl3/consts.clj (generated)
 src/sdl3/raw/       (generated)
-examples/           hello, bounce, gpu-clear, tone
+examples/           hello, bounce, gpu-clear, tone, tray
 test/sdl3/          headless suite; test_runner.clj is the -main
 ```
 
