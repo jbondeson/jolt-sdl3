@@ -10,7 +10,8 @@
    ["bounce" 'examples.showcase.bounce "bouncing rects: the renderer, decoded events and keyboard state"]
    ["gpu-clear" 'examples.showcase.gpu-clear "the GPU API's swapchain loop, clearing to a cycling color"]
    ["tone" 'examples.showcase.tone "a two-second tone from an audio stream callback"]
-   ["tray" 'examples.showcase.tray "a tray menu that opens a native file dialog"]])
+   ["tray" 'examples.showcase.tray "a tray menu that opens a native file dialog"]
+   ["text" 'examples.showcase.text "SDL_ttf and SDL_image: a picture and a line of text you type into"]])
 
 (defn- list-examples []
   (println "Showcase examples (jolt showcase <name>):")

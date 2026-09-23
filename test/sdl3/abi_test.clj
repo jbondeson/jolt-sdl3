@@ -17,6 +17,7 @@
             [sdl3.raw.guid]
             [sdl3.raw.haptic]
             [sdl3.raw.hidapi]
+            [sdl3.raw.image]
             [sdl3.raw.iostream]
             [sdl3.raw.joystick]
             [sdl3.raw.locale]
@@ -31,10 +32,12 @@
             [sdl3.raw.surface]
             [sdl3.raw.time]
             [sdl3.raw.touch]
+            [sdl3.raw.ttf]
             [sdl3.raw.video]))
 
 (def layouts
-  {"SDL_AsyncIOOutcome" sdl3.raw.asyncio/async-io-outcome
+  {"IMG_Animation" sdl3.raw.image/animation
+   "SDL_AsyncIOOutcome" sdl3.raw.asyncio/async-io-outcome
    "SDL_AtomicInt" sdl3.raw.atomic/atomic-int
    "SDL_AtomicU32" sdl3.raw.atomic/atomic-u32
    "SDL_AudioDeviceEvent" sdl3.raw.events/audio-device-event
@@ -153,7 +156,15 @@
    "SDL_VirtualJoystickTouchpadDesc" sdl3.raw.joystick/virtual-joystick-touchpad-desc
    "SDL_WindowEvent" sdl3.raw.events/window-event
    "SDL_alignment_test" sdl3.raw.stdinc/alignment-test
-   "SDL_hid_device_info" sdl3.raw.hidapi/hid-device-info})
+   "SDL_hid_device_info" sdl3.raw.hidapi/hid-device-info
+   "TTF_CopyOperation" sdl3.raw.ttf/copy-operation
+   "TTF_DrawOperation" sdl3.raw.ttf/draw-operation
+   "TTF_FillOperation" sdl3.raw.ttf/fill-operation
+   "TTF_GPUAtlasDrawSequence" sdl3.raw.ttf/gpu-atlas-draw-sequence
+   "TTF_SubString" sdl3.raw.ttf/sub-string
+   "TTF_Text" sdl3.raw.ttf/text
+   "TTF_TextData" sdl3.raw.ttf/text-data
+   "TTF_TextEngine" sdl3.raw.ttf/text-engine})
 
 (deftest layouts-match-c-abi
   (doseq [[cname layout] layouts]

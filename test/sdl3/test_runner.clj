@@ -10,6 +10,7 @@
             [sdl3.events-test]
             [sdl3.examples-test]
             [sdl3.gpu-test]
+            [sdl3.image-test]
             [sdl3.io-test]
             [sdl3.joystick-test]
             [sdl3.process-test]
@@ -19,7 +20,8 @@
             [sdl3.system-test]
             [sdl3.thread-test]
             [sdl3.timer-test]
-            [sdl3.tray-dialog-test]))
+            [sdl3.tray-dialog-test]
+            [sdl3.ttf-test]))
 
 (defn -main [& _]
   (let [{:keys [fail error]} (t/run-all-tests #"sdl3\..*-test")]

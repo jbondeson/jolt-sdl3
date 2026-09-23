@@ -9,6 +9,10 @@ on:
 env:
   JOLT_VERSION: "0.8.10"
   SDL_VERSION: "3.4.16"
+  SDL_IMAGE_VERSION: "3.4.6"
+  SDL_TTF_VERSION: "3.2.2"
+  # CI installs every library, so a test that finds one missing fails instead of skipping
+  JOLT_SDL3_REQUIRE_SATELLITES: "1"
 
 jobs:
   macos:
@@ -16,12 +20,12 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Install Jolt and SDL3
-        run: brew install jolt-lang/jolt/jolt sdl3
+      - name: Install Jolt, SDL3, SDL3_image and SDL3_ttf
+        run: brew install jolt-lang/jolt/jolt sdl3 sdl3_image sdl3_ttf
       - name: Versions
         run: |
           jolt --version
-          brew list --versions sdl3
+          brew list --versions sdl3 sdl3_image sdl3_ttf
       - name: Test
         run: jolt -M:test
 
@@ -34,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install build dependencies and software Vulkan
+      - name: Install build dependencies, software Vulkan and a font
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -42,25 +46,36 @@ jobs:
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev libxtst-dev \
             libxkbcommon-dev libwayland-dev wayland-protocols libegl1-mesa-dev libgles2-mesa-dev \
             libdbus-1-dev libudev-dev libasound2-dev libpulse-dev libpipewire-0.3-dev \
-            libvulkan-dev libvulkan1 mesa-vulkan-drivers
+            libvulkan-dev libvulkan1 mesa-vulkan-drivers \
+            libfreetype-dev libharfbuzz-dev \
+            libpng-dev libjpeg-dev libwebp-dev libtiff-dev \
+            fonts-dejavu-core
 
-      - name: Cache SDL3
+      - name: Cache SDL3, SDL3_image and SDL3_ttf
         id: sdl-cache
         uses: actions/cache@v6
         with:
           path: ~/sdl3
-          key: sdl3-${{ env.SDL_VERSION }}-ubuntu-24.04-v1
+          key: sdl3-${{ env.SDL_VERSION }}-image-${{ env.SDL_IMAGE_VERSION }}-ttf-${{ env.SDL_TTF_VERSION }}-ubuntu-24.04-v1
 
-      - name: Build SDL3
+      - name: Build SDL3, SDL3_image and SDL3_ttf
         if: steps.sdl-cache.outputs.cache-hit != 'true'
         run: |
-          curl -sSL -o sdl.tar.gz "https://github.com/libsdl-org/SDL/releases/download/release-${SDL_VERSION}/SDL3-${SDL_VERSION}.tar.gz"
-          tar xzf sdl.tar.gz
-          cmake -S "SDL3-${SDL_VERSION}" -B sdl-build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$HOME/sdl3" \
-            -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF -DSDL_STATIC=OFF
-          cmake --build sdl-build
-          cmake --install sdl-build
+          build() {  # build <repo> <tarball-stem> <version> [cmake options...]
+            local repo=$1 stem=$2 version=$3; shift 3
+            curl -sSL -o "$stem.tar.gz" "https://github.com/libsdl-org/$repo/releases/download/release-$version/$stem-$version.tar.gz"
+            tar xzf "$stem.tar.gz"
+            cmake -S "$stem-$version" -B "$stem-build" -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$HOME/sdl3" -DCMAKE_PREFIX_PATH="$HOME/sdl3" "$@"
+            cmake --build "$stem-build"
+            cmake --install "$stem-build"
+          }
+          build SDL SDL3 "$SDL_VERSION" -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF -DSDL_STATIC=OFF
+          # the release tarballs do not carry the vendored libraries: use Ubuntu's
+          build SDL_image SDL3_image "$SDL_IMAGE_VERSION" -DSDLIMAGE_VENDORED=OFF -DSDLIMAGE_SAMPLES=OFF \
+            -DSDLIMAGE_AVIF=OFF -DSDLIMAGE_JXL=OFF
+          build SDL_ttf SDL3_ttf "$SDL_TTF_VERSION" -DSDLTTF_VENDORED=OFF -DSDLTTF_SAMPLES=OFF \
+            -DSDLTTF_HARFBUZZ=ON -DSDLTTF_PLUTOSVG=OFF
 
       - name: Install Jolt
         run: |
@@ -82,7 +97,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install Jolt and SDL3
+      - name: Install Jolt, SDL3, SDL3_image and SDL3_ttf
         shell: pwsh
         run: |
           $tools = Join-Path $env:RUNNER_TEMP "tools"
@@ -93,10 +108,19 @@ jobs:
           Expand-Archive "$tools\jolt.zip" -DestinationPath $tools
           Add-Content $env:GITHUB_PATH (Join-Path $tools $jolt)
 
-          Invoke-WebRequest -Uri "https://github.com/libsdl-org/SDL/releases/download/release-$env:SDL_VERSION/SDL3-$env:SDL_VERSION-win32-x64.zip" -OutFile "$tools\sdl.zip"
-          Expand-Archive "$tools\sdl.zip" -DestinationPath "$tools\sdl"
-          $dll = Get-ChildItem -Path "$tools\sdl" -Recurse -Filter SDL3.dll | Select-Object -First 1
-          Add-Content $env:GITHUB_PATH $dll.DirectoryName
+          # each library publishes a zip holding its DLL; put each DLL's folder on PATH
+          $libs = @(
+            @{ Repo = "SDL";       Name = "SDL3";       Version = $env:SDL_VERSION },
+            @{ Repo = "SDL_image"; Name = "SDL3_image"; Version = $env:SDL_IMAGE_VERSION },
+            @{ Repo = "SDL_ttf";   Name = "SDL3_ttf";   Version = $env:SDL_TTF_VERSION }
+          )
+          foreach ($lib in $libs) {
+            $zip = "$tools\$($lib.Name).zip"
+            Invoke-WebRequest -Uri "https://github.com/libsdl-org/$($lib.Repo)/releases/download/release-$($lib.Version)/$($lib.Name)-$($lib.Version)-win32-x64.zip" -OutFile $zip
+            Expand-Archive $zip -DestinationPath "$tools\$($lib.Name)"
+            $dll = Get-ChildItem -Path "$tools\$($lib.Name)" -Recurse -Filter "$($lib.Name).dll" | Select-Object -First 1
+            Add-Content $env:GITHUB_PATH $dll.DirectoryName
+          }
 
       - name: Test
         shell: pwsh

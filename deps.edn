@@ -13,7 +13,23 @@
                          "/opt/homebrew/lib/libSDL3.0.dylib"
                          "/usr/local/lib/libSDL3.0.dylib"]
                 :linux ["libSDL3.so.0" "libSDL3.so"]
-                :windows ["SDL3.dll"]}]
+                :windows ["SDL3.dll"]}
+               ;; the satellite libraries are optional: a project that never requires
+               ;; sdl3.ttf or sdl3.image does not need them installed
+               {:name "SDL3_ttf"
+                :darwin ["libSDL3_ttf.0.dylib" "libSDL3_ttf.dylib"
+                         "/opt/homebrew/lib/libSDL3_ttf.0.dylib"
+                         "/usr/local/lib/libSDL3_ttf.0.dylib"]
+                :linux ["libSDL3_ttf.so.0" "libSDL3_ttf.so"]
+                :windows ["SDL3_ttf.dll"]
+                :optional true}
+               {:name "SDL3_image"
+                :darwin ["libSDL3_image.0.dylib" "libSDL3_image.dylib"
+                         "/opt/homebrew/lib/libSDL3_image.0.dylib"
+                         "/usr/local/lib/libSDL3_image.0.dylib"]
+                :linux ["libSDL3_image.so.0" "libSDL3_image.so"]
+                :windows ["SDL3_image.dll"]
+                :optional true}]
 
  :aliases {:test {:extra-paths ["test" "examples"]
                   :main-opts ["-m" "sdl3.test-runner"]}

@@ -25,14 +25,18 @@ The library comes in two layers, and you can mix them freely:
   joysticks, gamepads, haptics, sensors, cameras, the GPU API, IO streams, async IO,
   storage, properties, the system tray, file dialogs, threads and atomics, processes,
   HID, pixel formats, calendar time, touch, and system queries (CPU, locale, power, URLs,
-  shared objects).
+  shared objects). Two of SDL's companion libraries are covered too: `sdl3.ttf` for
+  TrueType text (SDL_ttf) and `sdl3.image` for image formats beyond BMP and PNG
+  (SDL_image).
 - **`sdl3.raw.*`** is the whole C API, generated straight from the SDL headers: one
   namespace per header, one `jolt.ffi/defcfn` per exported function (1256 of the 1265 in
   SDL 3.4.16), and an `ffi/layout` for every struct and union (120 of them, `SDL_Event`
   included). Nothing is checked or converted here. It plays the same role as
   [thunderchez](https://github.com/ovenpasta/thunderchez)'s SDL2 bindings do for plain
   Chez. The only headers without an `sdl3.*` counterpart are `SDL_main.h` (C's program
-  entry point) and `SDL_stdinc.h` (SDL's own copy of libc).
+  entry point) and `SDL_stdinc.h` (SDL's own copy of libc). SDL_ttf and SDL_image get
+  the same treatment in `sdl3.raw.ttf` and `sdl3.raw.image`, with all 117 and 102 of
+  their functions bound.
 
 Here's a window with a yellow square that closes on Escape:
 
@@ -79,6 +83,12 @@ That's all the setup there is. This library's `deps.edn` declares libSDL3 under
 `:jolt/native`, so Jolt loads it for your project before any `sdl3.*` namespace is
 required.
 
+Text and extra image formats need two more libraries, and only if you use them. On macOS
+that's `brew install sdl3_ttf sdl3_image`; on Linux, your distro's SDL3_ttf and SDL3_image
+packages. They're declared as optional, so a project that never requires
+`sdl3.ttf` or `sdl3.image` runs fine without them. `(sdl3.ttf/available?)` and
+`(sdl3.image/available?)` tell you whether they were found.
+
 A few tasks are included (`jolt <task>`):
 
 - `test` runs the test suite. It's headless, so no windows pop up.
@@ -109,10 +119,11 @@ this repository, since `sample.wav` is a song excerpt SDL distributes by the art
 permission. The first run of an example that needs one downloads it from SDL's 3.4.16
 release into `examples/assets/`, using `curl`.
 
-`examples/examples/showcase/` holds this library's own examples, run with `jolt showcase
-<name>`: `hello` (the smallest useful program), `bounce` (the renderer, events and keyboard state), `gpu-clear` (the GPU
-API's swapchain loop), `tone` (an audio stream fed by a callback) and `tray` (a tray menu
-that opens a file dialog).
+`examples/examples/showcase/` holds this library's own examples, run with
+`jolt showcase <name>`: `hello` (the smallest useful program), `bounce` (the renderer,
+events and keyboard state), `gpu-clear` (the GPU API's swapchain loop), `tone` (an audio
+stream fed by a callback), `tray` (a tray menu that opens a file dialog) and `text`
+(SDL_ttf and SDL_image: a picture and a line of text you type into).
 
 ## How it fits together
 
@@ -257,6 +268,41 @@ A quick tour of what else is in there:
   live in `sdl3.render/compose-blend-mode`, and the Metal and Vulkan helpers are in
   `sdl3.video`.
 
+## Text and images: SDL_ttf and SDL_image
+
+```clojure
+(require '[sdl3.ttf :as ttf] '[sdl3.image :as img])
+
+;; images: load any format SDL_image knows straight into a texture, or save a surface
+(def picture (img/load-texture renderer "hero.webp"))
+(img/save-as! surface "shot.jpg" :jpg 85)
+
+;; text: a renderer text engine caches glyphs, so text objects are cheap to redraw and edit
+(ttf/init!)
+(def font (ttf/open-font "DejaVuSans.ttf" 24))
+(def engine (ttf/create-renderer-text-engine renderer))
+(def label (ttf/create-text engine font "Score: 0"))
+(ttf/set-text-color! label [240 200 60])
+(ttf/draw-renderer-text! label 20 20)          ; each frame
+(ttf/set-text! label "Score: 10")
+
+;; or render a string once to a surface
+(ttf/render-text font "Game over" {:mode :blended :color [255 0 0] :wrap 300})
+```
+
+- **`sdl3.image`** loads JPEG, WebP, AVIF, JPEG XL, GIF, TIFF, QOI, SVG, TGA, ICO and
+  more into surfaces, textures or GPU textures, and saves PNG, JPEG, WebP, AVIF, GIF, TGA,
+  BMP, ICO and CUR. It detects formats (`format-of`), and reads and writes animations,
+  either whole (`load-animation`) or frame by frame (`create-decoder`,
+  `create-encoder`).
+- **`sdl3.ttf`** opens fonts, measures and wraps strings, renders text and glyphs to
+  surfaces in four modes, and drives SDL_ttf's text engines for renderers, GPU devices
+  and surfaces. Text objects support editing, colors, wrapping, and byte-addressed
+  substrings for hit testing and cursor movement. Font styles come back as sets, and
+  hinting, alignment and direction as keywords.
+
+Both ship their constants in `sdl3.consts.ttf` and `sdl3.consts.image`.
+
 The test suite gets a lot done without any special hardware. It drives joysticks and
 gamepads through virtual devices, audio through SDL's dummy driver, storage through a
 temporary directory, and tray menus through simulated clicks. On Metal it also compiles
@@ -308,17 +354,21 @@ exist only as header macros; the `...Runtime` functions they expand to are bound
 
 ## Regenerating the bindings
 
-`tools/gen.clj` is a Jolt script. It reads the `SDL3/SDL_*.h` headers from your include
-directory (`/opt/homebrew/include`, `/usr/local/include` or `/usr/include`, or whichever
-one you pass). SDL3's headers are regular enough to parse directly, so there's no need
-for c2ffi. It picks up the function declarations, typedefs, enums, structs and `#define`
-groups, then compiles one small C program with `clang` to get every constant's value and
-every struct's size and field offsets. It writes:
+`tools/gen.clj` is a Jolt script. It reads the `SDL3/SDL_*.h` headers, plus SDL_ttf's and
+SDL_image's when they're installed, from your include directory (`/opt/homebrew/include`,
+`/usr/local/include` or `/usr/include`, or whichever one you pass). SDL3's headers are
+regular enough to parse directly, and its companion libraries follow the same
+conventions, so there's no need for c2ffi. It picks up the function declarations,
+typedefs, enums, structs and `#define` groups, then compiles one small C program with
+`clang` to get every constant's value and every struct's size and field offsets. It
+writes:
 
 | Output | Contents |
 | --- | --- |
 | `src/sdl3/raw/<header>.clj` | the bindings and layouts for that header |
+| `src/sdl3/raw/ttf.clj`, `image.clj` | the same for SDL_ttf and SDL_image |
 | `src/sdl3/consts.clj` | enum and flag maps, hint and property strings |
+| `src/sdl3/consts/ttf.clj`, `image.clj` | the same for SDL_ttf and SDL_image |
 | `src/sdl3/raw/abi.clj` | the C compiler's sizes and offsets |
 | `test/sdl3/abi_test.clj` | a test that every layout matches them |
 
@@ -327,9 +377,10 @@ jolt gen          # or: jolt tools/gen.clj /path/to/include .
 jolt test
 ```
 
-The generator prints anything it skipped, along with the reason. When a new SDL release
-comes out, regenerate, run the tests and look over the diff. New functions show up in
-the raw layer without any extra work.
+The generator prints anything it skipped, along with the reason. If SDL_ttf or SDL_image
+isn't installed, it skips that library and leaves its generated files as they were. When
+a new SDL release comes out, regenerate, run the tests and look over the diff. New
+functions show up in the raw layer without any extra work.
 
 ## Project layout
 
@@ -341,18 +392,19 @@ src/sdl3/{video,render,events,keyboard,mouse,rect,surface,timer,log,messagebox,c
 src/sdl3/{audio,joystick,gamepad,gpu,io,properties}.clj
 src/sdl3/{camera,haptic,sensor,storage,tray,dialog}.clj
 src/sdl3/{thread,process,asyncio,hid,system,time,touch,pixels}.clj
-src/sdl3/consts.clj (generated)
+src/sdl3/{ttf,image}.clj   SDL_ttf and SDL_image
+src/sdl3/consts.clj, src/sdl3/consts/   (generated)
 src/sdl3/raw/       (generated)
 examples/examples/sdl/        ports of SDL's official examples, and their harness and runner
-examples/examples/showcase/   hello, bounce, gpu-clear, tone, tray, and their runner
+examples/examples/showcase/   hello, bounce, gpu-clear, tone, tray, text, and their runner
 test/sdl3/          the headless suite; test_runner.clj is the entry point
 ```
 
 ## Status
 
-- The bindings are generated from SDL 3.4.16 and tested on macOS arm64 with Jolt 0.8.10.
-  Linux should work as-is, since the `:jolt/native` entry names `libSDL3.so.0`. Windows
-  is declared too, but hasn't been tested yet.
+- The bindings are generated from SDL 3.4.16, SDL_ttf 3.2.2 and SDL_image 3.4.6, and
+  developed on macOS arm64 with Jolt 0.8.10. CI runs the full test suite on macOS, Linux
+  and Windows, though Windows is still marked experimental there.
 - Adding to the `sdl3.*` layer is mostly a matter of `(core/defsdl name raw/name)` lines.
   Any of the `sdl3.*` namespaces shows the pattern, and `sdl3.core/defsdl` documents the
   options.
