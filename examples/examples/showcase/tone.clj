@@ -1,6 +1,6 @@
-(ns examples.tone
+(ns examples.showcase.tone
   "Audio streams: play a two-second 440 Hz tone, generated in a stream callback
-  on SDL's audio thread. `jolt tone` runs it."
+  on SDL's audio thread. `jolt showcase tone` runs it."
   (:require [sdl3.core :as sdl]
             [sdl3.audio :as audio]
             [sdl3.timer :as timer]))

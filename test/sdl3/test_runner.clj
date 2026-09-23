@@ -8,6 +8,7 @@
             [sdl3.core-test]
             [sdl3.devices-test]
             [sdl3.events-test]
+            [sdl3.examples-test]
             [sdl3.gpu-test]
             [sdl3.io-test]
             [sdl3.joystick-test]

@@ -72,6 +72,7 @@
 (def ^:private cell-a (ffi/alloc 16))
 (def ^:private cell-b (ffi/alloc 16))
 (def ^:private cell-c (ffi/alloc 16))
+(def ^:private cell-d (ffi/alloc 16))
 
 (defn- frect-arg [cell r]
   (cond (nil? r) ffi/null
@@ -212,6 +213,10 @@
     (core/check-bool "SDL_RenderPoints" (render/render-points ren p n)))
   nil)
 
+(def debug-text-font-character-size
+  "SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE: debug-text! glyphs are this many pixels square."
+  8)
+
 (defn debug-text!
   "SDL_RenderDebugText: `text` in SDL's built-in 8x8 font at x, y."
   [ren x y text]
@@ -259,6 +264,16 @@
 
 (defsdl unlock-texture! render/unlock-texture)
 
+(defn lock-texture-to-surface
+  "SDL_LockTextureToSurface on a :streaming texture: a temporary SDL_Surface over
+  the locked `rect` (an SDL_Rect map, or nil for the whole texture), to draw into
+  with sdl3.surface. The pixels are write-only: fill every one. unlock-texture!
+  uploads them and frees the surface."
+  [tex rect]
+  (with-outs [ps :pointer]
+    (core/check-bool "SDL_LockTextureToSurface" (render/lock-texture-to-surface tex (rect-arg cell-a rect) ps))
+    (ffi/read ps :pointer)))
+
 (defn set-texture-blend-mode! [tex mode]
   (core/check-bool "SDL_SetTextureBlendMode" (render/set-texture-blend-mode tex (core/flags c/blend-mode mode)))
   nil)
@@ -271,6 +286,13 @@
 
 (defn set-texture-color-mod! [tex r g b]
   (core/check-bool "SDL_SetTextureColorMod" (render/set-texture-color-mod tex (int r) (int g) (int b)))
+  nil)
+
+(defn set-texture-color-mod-float!
+  "SDL_SetTextureColorModFloat: multiply the texture's red, green and blue by
+  0.0-1.0 (1.0 leaves a channel alone, 0.0 shuts it off) when drawing it."
+  [tex r g b]
+  (core/check-bool "SDL_SetTextureColorModFloat" (render/set-texture-color-mod-float tex (double r) (double g) (double b)))
   nil)
 
 (defn set-texture-alpha-mod! [tex a]
@@ -294,6 +316,17 @@
                    (render/render-texture-rotated ren tex (frect-arg cell-a src) (frect-arg cell-b dst)
                                                   (double angle) (fpoint-arg cell-c center)
                                                   (core/flags c/flip-mode flip)))
+  nil)
+
+(defn render-texture-affine!
+  "SDL_RenderTextureAffine: draw `tex` (or the part `src`, an SDL_FRect map or nil)
+  as the parallelogram whose top-left corner lands on point `origin`, top-right
+  on `right` and bottom-left on `down` ({:x :y} maps or [x y]; nil for `right` or
+  `down` uses the source size along that edge)."
+  [ren tex src origin right down]
+  (core/check-bool "SDL_RenderTextureAffine"
+                   (render/render-texture-affine ren tex (frect-arg cell-a src) (fpoint-arg cell-b origin)
+                                                 (fpoint-arg cell-c right) (fpoint-arg cell-d down)))
   nil)
 
 (defn render-texture-tiled!
@@ -465,3 +498,11 @@
     (blendmode/compose-custom-blend-mode
      (bf src-color-factor) (bf dst-color-factor) (bo color-operation)
      (bf src-alpha-factor) (bf dst-alpha-factor) (bo alpha-operation))))
+
+;; ---------------------------------------------------------------------------
+;; palettes
+;; ---------------------------------------------------------------------------
+
+(defsdl set-texture-palette! render/set-texture-palette
+  :doc "Give an indexed-format texture (:index8 ...) the SDL_Palette from sdl3.pixels/create-palette.")
+(defsdl texture-palette render/get-texture-palette :nullable true)

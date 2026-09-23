@@ -1,7 +1,7 @@
-(ns examples.tray
+(ns examples.showcase.tray
   "A menu bar / system tray icon whose menu opens a native file dialog, and a
   window showing the last choice. Quit from the menu, with Escape, or by
-  closing the window. `jolt tray` runs it."
+  closing the window. `jolt showcase tray` runs it."
   (:require [sdl3.core :as sdl]
             [sdl3.dialog :as dialog]
             [sdl3.events :as ev]

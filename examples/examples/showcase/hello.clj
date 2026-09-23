@@ -1,6 +1,6 @@
-(ns examples.hello
+(ns examples.showcase.hello
   "The smallest useful program: a window, a rect, and a loop that quits on
-  close or Escape. `jolt hello` (a deps.edn task) runs it."
+  close or Escape. `jolt showcase hello` runs it."
   (:require [sdl3.core :as sdl]
             [sdl3.video :as video]
             [sdl3.render :as r]

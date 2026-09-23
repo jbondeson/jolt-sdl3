@@ -15,14 +15,13 @@
                 :linux ["libSDL3.so.0" "libSDL3.so"]
                 :windows ["SDL3.dll"]}]
 
- :aliases {:test {:extra-paths ["test"]
+ :aliases {:test {:extra-paths ["test" "examples"]
                   :main-opts ["-m" "sdl3.test-runner"]}
            :examples {:extra-paths ["examples"]}}
 
  :tasks {gen    "jolt tools/gen.clj"
          test   "jolt -M:test"
-         hello  "jolt -M:examples -m examples.hello"
-         bounce "jolt -M:examples -m examples.bounce"
-         gpu-clear "jolt -M:examples -m examples.gpu-clear"
-         tone "jolt -M:examples -m examples.tone"
-         tray "jolt -M:examples -m examples.tray"}}
+         showcase {:doc "run a showcase example: jolt showcase bounce (no name lists them)"
+                   :task (apply shell "jolt" "-M:examples" "-m" "examples.showcase.run" *command-line-args*)}
+         sdl-example {:doc "run an SDL example port: jolt sdl-example renderer/clear (no name lists them)"
+                      :task (apply shell "jolt" "-M:examples" "-m" "examples.sdl.run" *command-line-args*)}}}

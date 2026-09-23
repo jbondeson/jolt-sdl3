@@ -82,8 +82,37 @@ required.
 A few tasks are included (`jolt <task>`):
 
 - `test` runs the test suite. It's headless, so no windows pop up.
-- `hello`, `bounce`, `gpu-clear`, `tone` and `tray` run the examples.
+- `sdl-example` runs a port of one of SDL's official examples; see [Examples](#examples).
+- `showcase` runs one of this library's own examples; `jolt showcase` lists them.
 - `gen` regenerates the raw layer from the SDL headers you have installed.
+
+## Examples
+
+`examples/examples/sdl/` holds Jolt ports of [SDL's official
+examples](https://examples.libsdl.org/SDL3/), one namespace each, grouped by SDL's
+categories: renderer, audio, input, pen, camera, asyncio, misc and demo. They follow the C
+originals closely, comments included, so you can read them side by side. Run one by its
+SDL name, with or without SDL's number:
+
+```
+jolt sdl-example                       # list them all
+jolt sdl-example renderer/primitives
+jolt sdl-example demo/01-snake
+```
+
+SDL writes these examples against its app-callback model (`SDL_AppInit`, `SDL_AppEvent`,
+`SDL_AppIterate` and `SDL_AppQuit`). `examples.sdl.app` runs the same four functions in a
+plain loop, so each port keeps the shape of its original.
+
+A few examples load images and sounds from SDL's `test/` folder. Those aren't included in
+this repository, since `sample.wav` is a song excerpt SDL distributes by the artist's
+permission. The first run of an example that needs one downloads it from SDL's 3.4.16
+release into `examples/assets/`, using `curl`.
+
+`examples/examples/showcase/` holds this library's own examples, run with `jolt showcase
+<name>`: `hello` (the smallest useful program), `bounce` (the renderer, events and keyboard state), `gpu-clear` (the GPU
+API's swapchain loop), `tone` (an audio stream fed by a callback) and `tray` (a tray menu
+that opens a file dialog).
 
 ## How it fits together
 
@@ -314,7 +343,8 @@ src/sdl3/{camera,haptic,sensor,storage,tray,dialog}.clj
 src/sdl3/{thread,process,asyncio,hid,system,time,touch,pixels}.clj
 src/sdl3/consts.clj (generated)
 src/sdl3/raw/       (generated)
-examples/           hello, bounce, gpu-clear, tone, tray
+examples/examples/sdl/        ports of SDL's official examples, and their harness and runner
+examples/examples/showcase/   hello, bounce, gpu-clear, tone, tray, and their runner
 test/sdl3/          the headless suite; test_runner.clj is the entry point
 ```
 

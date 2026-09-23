@@ -26,6 +26,14 @@
 (defsdl surface-properties surface/get-surface-properties)
 (defsdl load-bmp surface/load-bmp)
 (defsdl load-bmp-io surface/load-bmp-io)
+(defsdl load-png surface/load-png
+  :doc "SDL_LoadPNG (SDL 3.4+): a new surface from a PNG file.")
+(defsdl load-png-io surface/load-png-io)
+(defsdl save-png! surface/save-png)
+(defsdl save-png-io! surface/save-png-io)
+(defsdl load-surface surface/load-surface
+  :doc "SDL_LoadSurface (SDL 3.4+): a new surface from a BMP or PNG file, by its contents.")
+(defsdl load-surface-io surface/load-surface-io)
 (defsdl save-bmp! surface/save-bmp)
 (defsdl save-bmp-io! surface/save-bmp-io)
 (defsdl duplicate-surface surface/duplicate-surface)

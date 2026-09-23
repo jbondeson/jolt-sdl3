@@ -206,6 +206,19 @@
       (core/check-bool "SDL_PutAudioStreamData" (audio/put-audio-stream-data s p (int n)))))
   nil)
 
+(defn put-planar!
+  "SDL_PutAudioStreamPlanarData: queue `num-samples` samples per channel from
+  separate per-channel arrays, one entry of `planes` per channel in order. An
+  entry is an array core/array->ptr takes (a byte-array for :u8/:s8, a
+  float-array for :f32 ...) or nil for a silent channel. SDL copies the data."
+  [s planes num-samples]
+  (with-open [a (ffi/confined-arena)]
+    (let [ptrs (mapv (fn [plane] (if (nil? plane) ffi/null (first (as-bytes a plane)))) planes)
+          [pp n] (core/alloc-pointers a ptrs)]
+      (core/check-bool "SDL_PutAudioStreamPlanarData"
+                       (audio/put-audio-stream-planar-data s pp (int n) (int num-samples)))))
+  nil)
+
 (defn get-bytes
   "SDL_GetAudioStreamData: up to `n` converted bytes as a byte-array (all that is
   available when n is omitted)."

@@ -1,8 +1,8 @@
-(ns examples.gpu-clear
+(ns examples.showcase.gpu-clear
   "The GPU API's smallest frame loop: claim a window, acquire its swapchain
   texture each frame, and clear it to a color that cycles over time. Needs no
   shaders, so it runs on every driver. Escape or closing the window quits.
-  `jolt gpu-clear` runs it."
+  `jolt showcase gpu-clear` runs it."
   (:require [sdl3.core :as sdl]
             [sdl3.video :as video]
             [sdl3.events :as ev]

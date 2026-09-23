@@ -1,7 +1,7 @@
-(ns examples.bounce
+(ns examples.showcase.bounce
   "Bouncing rects: exercises the renderer, decoded events, keyboard state and
   the frame clock. Space or a click adds a rect, Backspace removes one, F toggles
-  fullscreen, Escape quits. `jolt bounce` runs it."
+  fullscreen, Escape quits. `jolt showcase bounce` runs it."
   (:require [jolt.ffi :as ffi]
             [sdl3.core :as sdl]
             [sdl3.video :as video]
