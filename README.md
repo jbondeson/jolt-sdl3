@@ -1,5 +1,7 @@
 # jolt-sdl3
 
+[![CI](https://github.com/jbondeson/jolt-sdl3/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jbondeson/jolt-sdl3/actions/workflows/ci.yml)
+
 [SDL3](https://libsdl.org) bindings for [Jolt](https://jolt-lang.net), Clojure on Chez
 Scheme. Everything goes through `jolt.ffi`, so there's no JVM, no JNI and no C shim to
 build.
