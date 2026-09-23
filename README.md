@@ -74,8 +74,8 @@ the library to your `deps.edn`:
 
 ```clojure
 {:deps {io.github.jbondeson/jolt-sdl3 {:git/url "https://github.com/jbondeson/jolt-sdl3"
-                                       :git/tag "v0.3.0"
-                                       :git/sha "954aa7993aedf0f8fd1397bfcf637144e0cb5e59"}}}
+                                       :git/tag "v0.3.1"
+                                       :git/sha "3fb728731d5bfb9f717c468d948ab67de183f09c"}}}
 ;; or, if you have a checkout on disk:
 {:deps {io.github.jbondeson/jolt-sdl3 {:local/root "../jolt-sdl3"}}}
 ```
