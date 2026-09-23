@@ -579,7 +579,7 @@
 (ffi/defcfn gl-swap-window
   "bool SDL_GL_SwapWindow(SDL_Window * window)"
   {:arglists '([window]) :sdl/c "SDL_GL_SwapWindow" :sdl/args [:pointer] :sdl/ret :bool}
-  "SDL_GL_SwapWindow" [:pointer] :bool)
+  "SDL_GL_SwapWindow" [:pointer] :bool :blocking)
 
 (ffi/defcfn gl-destroy-context
   "bool SDL_GL_DestroyContext(SDL_GLContext context)"

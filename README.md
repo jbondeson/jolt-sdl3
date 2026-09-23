@@ -369,7 +369,8 @@ C types map to Jolt's FFI types like this:
 - Every other pointer is a `:pointer`, and enums are `:int`.
 - `SDL_GUID` and other structs passed by value use `[:by-value ...]`.
 - Functions that wait, like `SDL_WaitEvent` and `SDL_Delay`, are marked `:blocking`, so
-  Jolt's garbage collector can keep running while they wait.
+  Jolt's garbage collector can keep running while they wait. So are `SDL_RenderPresent` and
+  `SDL_GL_SwapWindow`, which wait for vsync.
 - Variadic functions use a bare `:&`, as in `(log/log "%s" msg)`.
 
 Two things are good to know when you call raw bindings directly:
