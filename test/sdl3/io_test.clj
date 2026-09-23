@@ -1,6 +1,7 @@
 (ns sdl3.io-test
   (:require [clojure.test :refer [deftest is testing]]
-            [sdl3.io :as io]))
+            [sdl3.io :as io]
+            [sdl3.test-util :as tu]))
 
 (defn- utf8 [^bytes bs] (String. bs "UTF-8"))
 
@@ -25,7 +26,7 @@
     (is (= "cdef" (utf8 (io/read-all s))))))
 
 (deftest files
-  (let [path (str (System/getProperty "java.io.tmpdir") "/jolt-sdl3-io-test.bin")]
+  (let [path (tu/temp-path "jolt-sdl3-io-test")]
     (io/save-file! path "saved!")
     (is (= "saved!" (utf8 (io/load-file path))))
     (io/with-io [s (io/from-file path "rb")]

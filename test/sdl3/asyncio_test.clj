@@ -1,8 +1,9 @@
 (ns sdl3.asyncio-test
   (:require [clojure.test :refer [deftest is]]
-            [sdl3.asyncio :as aio]))
+            [sdl3.asyncio :as aio]
+            [sdl3.test-util :as tu]))
 
-(defn- temp-path [] (str (System/getProperty "java.io.tmpdir") "/jolt-sdl3-aio-" (System/nanoTime)))
+(defn- temp-path [] (tu/temp-path "jolt-sdl3-aio"))
 (defn- utf8 [^bytes bs] (String. bs "UTF-8"))
 
 (deftest write-close-load-read

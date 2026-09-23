@@ -1,11 +1,9 @@
 (ns sdl3.storage-test
   (:require [clojure.test :refer [deftest is testing]]
-            [sdl3.storage :as st]))
+            [sdl3.storage :as st]
+            [sdl3.test-util :as tu]))
 
-(defn- temp-dir []
-  (let [d (java.io.File. (str (System/getProperty "java.io.tmpdir") "/jolt-sdl3-storage-" (System/nanoTime)))]
-    (.mkdirs d)
-    (str d)))
+(defn- temp-dir [] (tu/temp-dir "jolt-sdl3-storage"))
 
 (deftest file-storage
   (st/with-storage [s (st/open-file (temp-dir))]
