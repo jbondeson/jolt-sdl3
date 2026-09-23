@@ -18,6 +18,7 @@
             [sdl3.process-test]
             [sdl3.properties-test]
             [sdl3.rect-test]
+            [sdl3.render-test]
             [sdl3.storage-test]
             [sdl3.system-test]
             [sdl3.thread-test]

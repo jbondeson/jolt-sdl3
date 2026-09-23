@@ -284,6 +284,29 @@
   (core/check-bool "SDL_SetTextureScaleMode" (render/set-texture-scale-mode tex (core/enum c/scale-mode mode)))
   nil)
 
+(defn texture-scale-mode
+  "SDL_GetTextureScaleMode: :nearest, :linear or :pixelart."
+  [tex]
+  (with-outs [m :int]
+    (core/check-bool "SDL_GetTextureScaleMode" (render/get-texture-scale-mode tex m))
+    (core/unenum c/scale-mode-names (ffi/read m :int))))
+
+(defn set-default-texture-scale-mode!
+  "SDL_SetDefaultTextureScaleMode: the scale mode textures `ren` creates from
+  now on start with (:nearest, :linear or :pixelart); textures already made
+  keep theirs. Pixel-art games usually want :nearest."
+  [ren mode]
+  (core/check-bool "SDL_SetDefaultTextureScaleMode"
+                   (render/set-default-texture-scale-mode ren (core/enum c/scale-mode mode)))
+  nil)
+
+(defn default-texture-scale-mode
+  "SDL_GetDefaultTextureScaleMode: the scale mode new textures start with."
+  [ren]
+  (with-outs [m :int]
+    (core/check-bool "SDL_GetDefaultTextureScaleMode" (render/get-default-texture-scale-mode ren m))
+    (core/unenum c/scale-mode-names (ffi/read m :int))))
+
 (defn set-texture-color-mod! [tex r g b]
   (core/check-bool "SDL_SetTextureColorMod" (render/set-texture-color-mod tex (int r) (int g) (int b)))
   nil)
