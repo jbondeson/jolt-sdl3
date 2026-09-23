@@ -73,7 +73,7 @@
 ;; C functions that wait, marked :blocking so the collector is not pinned while
 ;; they do. jolt refuses :blocking on a binding with a :string argument, so the
 ;; emitter drops the marker there (SDL_ShowSimpleMessageBox is the notable one).
-(def blocking-re #"^SDL_(Wait\w*|Delay\w*|LockMutex|LockRWLockForReading|LockRWLockForWriting|RunApp|SyncWindow|ReadProcess|ShowMessageBox|ShowSimpleMessageBox)$")
+(def blocking-re #"^(SDL_(Wait\w*|Delay\w*|LockMutex|LockRWLockForReading|LockRWLockForWriting|RunApp|SyncWindow|ReadProcess|ShowMessageBox|ShowSimpleMessageBox)|NET_WaitUntil\w*)$")
 
 ;; declared in the headers but exported only as macros over another symbol, so
 ;; there is nothing to bind: SDL_CreateThread(fn, name, data) expands to
@@ -83,7 +83,7 @@
    "SDL_CreateThreadWithProperties" "a macro over SDL_CreateThreadWithPropertiesRuntime"})
 
 (def struct-name-overrides
-  {"SDL_FRect" "frect" "SDL_FPoint" "fpoint" "SDL_FColor" "fcolor"})
+  {"SDL_FRect" "frect" "SDL_FPoint" "fpoint" "SDL_FColor" "fcolor" "MIX_Point3D" "point-3d"})
 
 ;; camel-case splits the rule gets wrong for a few compounds
 (def fn-name-overrides
@@ -100,7 +100,9 @@
    "SDL_GetWindowSurfaceVSync" "get-window-surface-vsync"
    "SDL_IsDeXMode" "is-dex-mode"
    "TTF_GetHarfBuzzVersion" "get-harfbuzz-version"
-   "TTF_GetFreeTypeVersion" "get-freetype-version"})
+   "TTF_GetFreeTypeVersion" "get-freetype-version"
+   "MIX_SetTrack3DPosition" "set-track-3d-position"
+   "MIX_GetTrack3DPosition" "get-track-3d-position"})
 
 ;; ---------------------------------------------------------------------------
 ;; naming
@@ -447,7 +449,21 @@
     :consts-ns "sdl3.consts.image" :consts-file "src/sdl3/consts/image.clj"
     :define-groups [["IMG_PROP_" "prop"]]
     :string-groups #{"IMG_PROP_"}
-    :singles ["SDL_IMAGE_MAJOR_VERSION" "SDL_IMAGE_MINOR_VERSION" "SDL_IMAGE_MICRO_VERSION"]}])
+    :singles ["SDL_IMAGE_MAJOR_VERSION" "SDL_IMAGE_MINOR_VERSION" "SDL_IMAGE_MICRO_VERSION"]}
+   {:id :mixer :title "SDL_mixer" :library "SDL_mixer" :years "1997-2026"
+    :dir "SDL3_mixer" :prefix "MIX_" :include ["SDL3_mixer/SDL_mixer.h"]
+    :headers ["SDL_mixer.h"] :module "mixer"
+    :consts-ns "sdl3.consts.mixer" :consts-file "src/sdl3/consts/mixer.clj"
+    :define-groups [["MIX_DURATION_" "duration"] ["MIX_PROP_" "prop"]]
+    :string-groups #{"MIX_PROP_"}
+    :singles ["SDL_MIXER_MAJOR_VERSION" "SDL_MIXER_MINOR_VERSION" "SDL_MIXER_MICRO_VERSION"]}
+   {:id :net :title "SDL_net" :library "SDL_net" :years "1997-2026"
+    :dir "SDL3_net" :prefix "NET_" :include ["SDL3_net/SDL_net.h"]
+    :headers ["SDL_net.h"] :module "net"
+    :consts-ns "sdl3.consts.net" :consts-file "src/sdl3/consts/net.clj"
+    :define-groups [["NET_PROP_" "prop"]]
+    :string-groups #{"NET_PROP_"}
+    :singles ["SDL_NET_MAJOR_VERSION" "SDL_NET_MINOR_VERSION" "SDL_NET_MICRO_VERSION"]}])
 
 ;; ---------------------------------------------------------------------------
 ;; emit

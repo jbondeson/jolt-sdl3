@@ -22,8 +22,10 @@
             [sdl3.raw.joystick]
             [sdl3.raw.locale]
             [sdl3.raw.messagebox]
+            [sdl3.raw.mixer]
             [sdl3.raw.mouse]
             [sdl3.raw.mutex]
+            [sdl3.raw.net]
             [sdl3.raw.pixels]
             [sdl3.raw.rect]
             [sdl3.raw.render]
@@ -37,6 +39,9 @@
 
 (def layouts
   {"IMG_Animation" sdl3.raw.image/animation
+   "MIX_Point3D" sdl3.raw.mixer/point-3d
+   "MIX_StereoGains" sdl3.raw.mixer/stereo-gains
+   "NET_Datagram" sdl3.raw.net/datagram
    "SDL_AsyncIOOutcome" sdl3.raw.asyncio/async-io-outcome
    "SDL_AtomicInt" sdl3.raw.atomic/atomic-int
    "SDL_AtomicU32" sdl3.raw.atomic/atomic-u32

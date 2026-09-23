@@ -25,18 +25,19 @@ The library comes in two layers, and you can mix them freely:
   joysticks, gamepads, haptics, sensors, cameras, the GPU API, IO streams, async IO,
   storage, properties, the system tray, file dialogs, threads and atomics, processes,
   HID, pixel formats, calendar time, touch, and system queries (CPU, locale, power, URLs,
-  shared objects). Two of SDL's companion libraries are covered too: `sdl3.ttf` for
-  TrueType text (SDL_ttf) and `sdl3.image` for image formats beyond BMP and PNG
-  (SDL_image).
+  shared objects). SDL's four companion libraries are covered too: `sdl3.ttf` for
+  TrueType text (SDL_ttf), `sdl3.image` for image formats beyond BMP and PNG
+  (SDL_image), `sdl3.mixer` for mixing and decoding sound (SDL_mixer), and `sdl3.net`
+  for TCP and UDP (SDL_net).
 - **`sdl3.raw.*`** is the whole C API, generated straight from the SDL headers: one
   namespace per header, one `jolt.ffi/defcfn` per exported function (1256 of the 1265 in
   SDL 3.4.16), and an `ffi/layout` for every struct and union (120 of them, `SDL_Event`
   included). Nothing is checked or converted here. It plays the same role as
   [thunderchez](https://github.com/ovenpasta/thunderchez)'s SDL2 bindings do for plain
   Chez. The only headers without an `sdl3.*` counterpart are `SDL_main.h` (C's program
-  entry point) and `SDL_stdinc.h` (SDL's own copy of libc). SDL_ttf and SDL_image get
-  the same treatment in `sdl3.raw.ttf` and `sdl3.raw.image`, with all 117 and 102 of
-  their functions bound.
+  entry point) and `SDL_stdinc.h` (SDL's own copy of libc). The companion libraries get
+  the same treatment in `sdl3.raw.ttf`, `sdl3.raw.image`, `sdl3.raw.mixer` and
+  `sdl3.raw.net`, with every one of their functions bound: 117, 102, 94 and 34.
 
 Here's a window with a yellow square that closes on Escape:
 
@@ -83,11 +84,12 @@ That's all the setup there is. This library's `deps.edn` declares libSDL3 under
 `:jolt/native`, so Jolt loads it for your project before any `sdl3.*` namespace is
 required.
 
-Text and extra image formats need two more libraries, and only if you use them. On macOS
-that's `brew install sdl3_ttf sdl3_image`; on Linux, your distro's SDL3_ttf and SDL3_image
-packages. They're declared as optional, so a project that never requires
-`sdl3.ttf` or `sdl3.image` runs fine without them. `(sdl3.ttf/available?)` and
-`(sdl3.image/available?)` tell you whether they were found.
+Text, extra image formats, the mixer and networking each need one more library, and
+only if you use them. On macOS that's `brew install sdl3_ttf sdl3_image sdl3_mixer
+sdl3_net`; on Linux, your distro's SDL3_ttf, SDL3_image, SDL3_mixer and SDL3_net
+packages. They're declared as optional, so a project that never requires one of those
+namespaces runs fine without its library. Each namespace has an `available?` function,
+such as `(sdl3.ttf/available?)`, that tells you whether its library was found.
 
 A few tasks are included (`jolt <task>`):
 
@@ -301,7 +303,39 @@ A quick tour of what else is in there:
   substrings for hit testing and cursor movement. Font styles come back as sets, and
   hinting, alignment and direction as keywords.
 
-Both ship their constants in `sdl3.consts.ttf` and `sdl3.consts.image`.
+## Sound and networking: SDL_mixer and SDL_net
+
+```clojure
+(require '[sdl3.mixer :as mixer] '[sdl3.net :as net])
+
+;; a mixer on the default device; tracks play sounds with their own gain, fades and loops
+(mixer/init!)
+(def m (mixer/create-mixer-device))
+(def music (mixer/load-audio m "theme.ogg"))
+(def track (mixer/create-track m))
+(mixer/set-track-audio! track music)
+(mixer/play! track {:loops -1 :fade-in-ms 2000})
+(mixer/play-audio! m (mixer/load-audio m "boom.wav" {:predecode true}))   ; fire and forget
+
+;; TCP: resolve, connect, write and read without blocking
+(net/init!)
+(def addr (net/resolve! "example.com"))
+(def sock (net/connect addr 80))
+(net/wait-connected sock 5000)                  ;=> :success
+(net/write! sock "GET / HTTP/1.0\r\n\r\n")
+(net/read sock 4096)                            ;=> whatever has arrived so far
+```
+
+- **`sdl3.mixer`** covers mixers on a device or rendering into memory (`generate`),
+  sounds loaded from files, bytes or raw PCM, and tracks with play options as a map,
+  seeking, gain, stereo and 3D placement, tags for controlling groups of tracks, a
+  stopped callback, and a standalone decoder.
+- **`sdl3.net`** covers address resolution, TCP clients and servers, UDP datagrams, and
+  waiting on many sockets at once. Everything is non-blocking unless a function says it
+  waits, and the waiting functions let Jolt's garbage collector run meanwhile.
+
+Each companion library ships its constants in `sdl3.consts.ttf`, `sdl3.consts.image`,
+`sdl3.consts.mixer` and `sdl3.consts.net`.
 
 The test suite gets a lot done without any special hardware. It drives joysticks and
 gamepads through virtual devices, audio through SDL's dummy driver, storage through a
@@ -354,21 +388,21 @@ exist only as header macros; the `...Runtime` functions they expand to are bound
 
 ## Regenerating the bindings
 
-`tools/gen.clj` is a Jolt script. It reads the `SDL3/SDL_*.h` headers, plus SDL_ttf's and
-SDL_image's when they're installed, from your include directory (`/opt/homebrew/include`,
-`/usr/local/include` or `/usr/include`, or whichever one you pass). SDL3's headers are
-regular enough to parse directly, and its companion libraries follow the same
-conventions, so there's no need for c2ffi. It picks up the function declarations,
-typedefs, enums, structs and `#define` groups, then compiles one small C program with
-`clang` to get every constant's value and every struct's size and field offsets. It
-writes:
+`tools/gen.clj` is a Jolt script. It reads the `SDL3/SDL_*.h` headers, plus the headers
+of each companion library that's installed, from your include directory
+(`/opt/homebrew/include`, `/usr/local/include` or `/usr/include`, or whichever one you
+pass). SDL3's headers are regular enough to parse directly, and its companion libraries
+follow the same conventions, so there's no need for c2ffi. It picks up the function
+declarations, typedefs, enums, structs and `#define` groups, then compiles one small C
+program with `clang` to get every constant's value and every struct's size and field
+offsets. It writes:
 
 | Output | Contents |
 | --- | --- |
 | `src/sdl3/raw/<header>.clj` | the bindings and layouts for that header |
-| `src/sdl3/raw/ttf.clj`, `image.clj` | the same for SDL_ttf and SDL_image |
+| `src/sdl3/raw/{ttf,image,mixer,net}.clj` | the same for the companion libraries |
 | `src/sdl3/consts.clj` | enum and flag maps, hint and property strings |
-| `src/sdl3/consts/ttf.clj`, `image.clj` | the same for SDL_ttf and SDL_image |
+| `src/sdl3/consts/{ttf,image,mixer,net}.clj` | the same for the companion libraries |
 | `src/sdl3/raw/abi.clj` | the C compiler's sizes and offsets |
 | `test/sdl3/abi_test.clj` | a test that every layout matches them |
 
@@ -377,7 +411,7 @@ jolt gen          # or: jolt tools/gen.clj /path/to/include .
 jolt test
 ```
 
-The generator prints anything it skipped, along with the reason. If SDL_ttf or SDL_image
+The generator prints anything it skipped, along with the reason. If a companion library
 isn't installed, it skips that library and leaves its generated files as they were. When
 a new SDL release comes out, regenerate, run the tests and look over the diff. New
 functions show up in the raw layer without any extra work.
@@ -392,7 +426,7 @@ src/sdl3/{video,render,events,keyboard,mouse,rect,surface,timer,log,messagebox,c
 src/sdl3/{audio,joystick,gamepad,gpu,io,properties}.clj
 src/sdl3/{camera,haptic,sensor,storage,tray,dialog}.clj
 src/sdl3/{thread,process,asyncio,hid,system,time,touch,pixels}.clj
-src/sdl3/{ttf,image}.clj   SDL_ttf and SDL_image
+src/sdl3/{ttf,image,mixer,net}.clj   SDL_ttf, SDL_image, SDL_mixer and SDL_net
 src/sdl3/consts.clj, src/sdl3/consts/   (generated)
 src/sdl3/raw/       (generated)
 examples/examples/sdl/        ports of SDL's official examples, and their harness and runner
@@ -402,9 +436,10 @@ test/sdl3/          the headless suite; test_runner.clj is the entry point
 
 ## Status
 
-- The bindings are generated from SDL 3.4.16, SDL_ttf 3.2.2 and SDL_image 3.4.6, and
-  developed on macOS arm64 with Jolt 0.8.10. CI runs the full test suite on macOS, Linux
-  and Windows, though Windows is still marked experimental there.
+- The bindings are generated from SDL 3.4.16, SDL_ttf 3.2.2, SDL_image 3.4.6, SDL_mixer
+  3.2.4 and SDL_net 3.2.0, and developed on macOS arm64 with Jolt 0.8.10. CI runs the full
+  test suite on macOS, Linux and Windows, though Windows is still marked experimental
+  there.
 - Adding to the `sdl3.*` layer is mostly a matter of `(core/defsdl name raw/name)` lines.
   Any of the `sdl3.*` namespaces shows the pattern, and `sdl3.core/defsdl` documents the
   options.

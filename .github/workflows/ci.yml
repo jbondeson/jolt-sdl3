@@ -11,6 +11,8 @@ env:
   SDL_VERSION: "3.4.16"
   SDL_IMAGE_VERSION: "3.4.6"
   SDL_TTF_VERSION: "3.2.2"
+  SDL_MIXER_VERSION: "3.2.4"
+  SDL_NET_VERSION: "3.2.0"
   # CI installs every library, so a test that finds one missing fails instead of skipping
   JOLT_SDL3_REQUIRE_SATELLITES: "1"
 
@@ -20,12 +22,12 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Install Jolt, SDL3, SDL3_image and SDL3_ttf
-        run: brew install jolt-lang/jolt/jolt sdl3 sdl3_image sdl3_ttf
+      - name: Install Jolt, SDL3 and its companion libraries
+        run: brew install jolt-lang/jolt/jolt sdl3 sdl3_image sdl3_ttf sdl3_mixer sdl3_net
       - name: Versions
         run: |
           jolt --version
-          brew list --versions sdl3 sdl3_image sdl3_ttf
+          brew list --versions sdl3 sdl3_image sdl3_ttf sdl3_mixer sdl3_net
       - name: Test
         run: jolt -M:test
 
@@ -51,14 +53,14 @@ jobs:
             libpng-dev libjpeg-dev libwebp-dev libtiff-dev \
             fonts-dejavu-core
 
-      - name: Cache SDL3, SDL3_image and SDL3_ttf
+      - name: Cache SDL3 and its companion libraries
         id: sdl-cache
         uses: actions/cache@v6
         with:
           path: ~/sdl3
-          key: sdl3-${{ env.SDL_VERSION }}-image-${{ env.SDL_IMAGE_VERSION }}-ttf-${{ env.SDL_TTF_VERSION }}-ubuntu-24.04-v1
+          key: sdl3-${{ env.SDL_VERSION }}-image-${{ env.SDL_IMAGE_VERSION }}-ttf-${{ env.SDL_TTF_VERSION }}-mixer-${{ env.SDL_MIXER_VERSION }}-net-${{ env.SDL_NET_VERSION }}-ubuntu-24.04-v1
 
-      - name: Build SDL3, SDL3_image and SDL3_ttf
+      - name: Build SDL3 and its companion libraries
         if: steps.sdl-cache.outputs.cache-hit != 'true'
         run: |
           build() {  # build <repo> <tarball-stem> <version> [cmake options...]
@@ -76,6 +78,9 @@ jobs:
             -DSDLIMAGE_AVIF=OFF -DSDLIMAGE_JXL=OFF
           build SDL_ttf SDL3_ttf "$SDL_TTF_VERSION" -DSDLTTF_VENDORED=OFF -DSDLTTF_SAMPLES=OFF \
             -DSDLTTF_HARFBUZZ=ON -DSDLTTF_PLUTOSVG=OFF
+          # codecs whose libraries are absent are left out; WAV, MP3, FLAC and Vorbis are built in
+          build SDL_mixer SDL3_mixer "$SDL_MIXER_VERSION" -DSDLMIXER_VENDORED=OFF -DSDLMIXER_SAMPLES=OFF -DSDLMIXER_TESTS=OFF
+          build SDL_net SDL3_net "$SDL_NET_VERSION" -DSDLNET_SAMPLES=OFF
 
       - name: Install Jolt
         run: |
@@ -97,7 +102,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install Jolt, SDL3, SDL3_image and SDL3_ttf
+      - name: Install Jolt, SDL3 and its companion libraries
         shell: pwsh
         run: |
           $tools = Join-Path $env:RUNNER_TEMP "tools"
@@ -112,7 +117,9 @@ jobs:
           $libs = @(
             @{ Repo = "SDL";       Name = "SDL3";       Version = $env:SDL_VERSION },
             @{ Repo = "SDL_image"; Name = "SDL3_image"; Version = $env:SDL_IMAGE_VERSION },
-            @{ Repo = "SDL_ttf";   Name = "SDL3_ttf";   Version = $env:SDL_TTF_VERSION }
+            @{ Repo = "SDL_ttf";   Name = "SDL3_ttf";   Version = $env:SDL_TTF_VERSION },
+            @{ Repo = "SDL_mixer"; Name = "SDL3_mixer"; Version = $env:SDL_MIXER_VERSION },
+            @{ Repo = "SDL_net";   Name = "SDL3_net";   Version = $env:SDL_NET_VERSION }
           )
           foreach ($lib in $libs) {
             $zip = "$tools\$($lib.Name).zip"
@@ -120,7 +127,7 @@ jobs:
             Expand-Archive $zip -DestinationPath "$tools\$($lib.Name)"
             $dll = Get-ChildItem -Path "$tools\$($lib.Name)" -Recurse -Filter "$($lib.Name).dll" | Select-Object -First 1
             Add-Content $env:GITHUB_PATH $dll.DirectoryName
-            # SDL_image loads its codecs (WebP, AVIF, TIFF ...) on demand from optional\
+            # SDL_image and SDL_mixer load their codecs on demand from an optional folder
             $optional = Join-Path $dll.DirectoryName "optional"
             if (Test-Path $optional) { Add-Content $env:GITHUB_PATH $optional }
           }

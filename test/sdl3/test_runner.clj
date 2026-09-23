@@ -13,6 +13,8 @@
             [sdl3.image-test]
             [sdl3.io-test]
             [sdl3.joystick-test]
+            [sdl3.mixer-test]
+            [sdl3.net-test]
             [sdl3.process-test]
             [sdl3.properties-test]
             [sdl3.rect-test]
