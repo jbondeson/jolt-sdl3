@@ -71,9 +71,11 @@
    "SDL_STANDARD_GRAVITY" "SDL_MAX_SINT32" "SDL_MAX_UINT32"])
 
 ;; C functions that wait, marked :blocking so the collector is not pinned while
-;; they do. jolt refuses :blocking on a binding with a :string argument, so the
+;; they do. That includes SDL_RenderPresent and SDL_GL_SwapWindow, which wait for
+;; vsync: unmarked, every other thread that allocates stalls for a frame or more.
+;; jolt refuses :blocking on a binding with a :string argument, so the
 ;; emitter drops the marker there (SDL_ShowSimpleMessageBox is the notable one).
-(def blocking-re #"^(SDL_(Wait\w*|Delay\w*|LockMutex|LockRWLockForReading|LockRWLockForWriting|RunApp|SyncWindow|ReadProcess|ShowMessageBox|ShowSimpleMessageBox)|NET_WaitUntil\w*)$")
+(def blocking-re #"^(SDL_(Wait\w*|Delay\w*|LockMutex|LockRWLockForReading|LockRWLockForWriting|RunApp|SyncWindow|RenderPresent|GL_SwapWindow|ReadProcess|ShowMessageBox|ShowSimpleMessageBox)|NET_WaitUntil\w*)$")
 
 ;; declared in the headers but exported only as macros over another symbol, so
 ;; there is nothing to bind: SDL_CreateThread(fn, name, data) expands to

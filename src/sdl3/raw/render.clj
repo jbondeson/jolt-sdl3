@@ -452,7 +452,7 @@
 (ffi/defcfn render-present
   "bool SDL_RenderPresent(SDL_Renderer * renderer)"
   {:arglists '([renderer]) :sdl/c "SDL_RenderPresent" :sdl/args [:pointer] :sdl/ret :bool}
-  "SDL_RenderPresent" [:pointer] :bool)
+  "SDL_RenderPresent" [:pointer] :bool :blocking)
 
 (ffi/defcfn destroy-texture
   "void SDL_DestroyTexture(SDL_Texture * texture)"
