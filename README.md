@@ -1,22 +1,38 @@
 # jolt-sdl3
 
-[SDL3](https://libsdl.org) bindings for [Jolt](https://jolt-lang.net) (Clojure on Chez Scheme),
-built on `jolt.ffi` — no JVM, no JNI, no C shim.
+[SDL3](https://libsdl.org) bindings for [Jolt](https://jolt-lang.net), Clojure on Chez
+Scheme. Everything goes through `jolt.ffi`, so there's no JVM, no JNI and no C shim to
+build.
 
-Two layers:
+## What is this, and why does it exist?
 
-- **`sdl3.raw.*`** — generated, one namespace per SDL header, one `jolt.ffi/defcfn` per
-  exported C function (1256 of the 1265 in SDL 3.4.16) plus an `ffi/layout` for every
-  struct and union (120, `SDL_Event` included). Nothing is checked or converted; this is
-  the equivalent of [thunderchez](https://github.com/ovenpasta/thunderchez)'s SDL2 layer.
-- **`sdl3.*`** — hand-written, idiomatic: failures become exceptions carrying
-  `SDL_GetError`, flags and enums are keywords, events decode to maps, rects are maps.
-  Covers init, video, render, events, keyboard, mouse, rect, surface, timer, log,
-  messagebox, clipboard, filesystem, audio, joystick, gamepad, haptic, sensor, camera,
-  GPU, IO streams, async IO, storage, properties, tray, file dialogs, threads and
-  atomics, processes, HID, pixel formats, calendar time, touch, and system queries
-  (CPU, locale, power, URLs, shared objects). Only `SDL_main.h` (C's entry point) and
-  `SDL_stdinc.h` (SDL's libc) are left to `sdl3.raw.*`.
+SDL2 bindings exist for Chez Scheme via [thunderchez](https://github.com/ovenpasta/thunderchez),
+but I couldn't find any for SDL3. This library was generated quickly, with AI help (see the
+disclosure below), for personal use. Consider the whole library ALPHA. The idiomatic Clojure
+API passes its automated tests but hasn't been used in a real project yet, and it will likely
+go through a number of changes.
+
+## Overview
+
+The library comes in two layers, and you can mix them freely:
+
+- **`sdl3.*`** is the one you'll usually want. It feels like Clojure: failures throw
+  exceptions carrying `SDL_GetError`, flags and enums are keywords, events arrive as maps,
+  and rects are maps too. It covers init, video, render, events, keyboard, mouse, rects,
+  surfaces, timers, logging, message boxes, the clipboard, the filesystem, audio,
+  joysticks, gamepads, haptics, sensors, cameras, the GPU API, IO streams, async IO,
+  storage, properties, the system tray, file dialogs, threads and atomics, processes,
+  HID, pixel formats, calendar time, touch, and system queries (CPU, locale, power, URLs,
+  shared objects).
+- **`sdl3.raw.*`** is the whole C API, generated straight from the SDL headers: one
+  namespace per header, one `jolt.ffi/defcfn` per exported function (1256 of the 1265 in
+  SDL 3.4.16), and an `ffi/layout` for every struct and union (120 of them, `SDL_Event`
+  included). Nothing is checked or converted here. It plays the same role as
+  [thunderchez](https://github.com/ovenpasta/thunderchez)'s SDL2 bindings do for plain
+  Chez. The only headers without an `sdl3.*` counterpart are `SDL_main.h` (C's program
+  entry point) and `SDL_stdinc.h` (SDL's own copy of libc).
+
+Here's a window with a yellow square that closes on Escape:
 
 ```clojure
 (ns app.core
@@ -43,41 +59,46 @@ Two layers:
       (video/destroy-window! win))))
 ```
 
-## Install
+## Getting started
 
-You need Jolt 0.8.0 or newer and libSDL3 on the loader path (`brew install sdl3` on
-macOS, your distro's `libsdl3` on Linux). Then depend on this repository:
+You'll need Jolt 0.8.0 or newer, and libSDL3 somewhere your system's loader can find it.
+On macOS that's `brew install sdl3`; on Linux, your distro's `libsdl3` package. Then add
+the library to your `deps.edn`:
 
 ```clojure
 {:deps {io.github.jbondeson/jolt-sdl3 {:git/url "https://github.com/jbondeson/jolt-sdl3"
                                        :git/tag "v0.1.0"
                                        :git/sha "9cec563a2d8a111ae4a05045b21e228bfd774a54"}}}
-;; or, while it lives on disk:
+;; or, if you have a checkout on disk:
 {:deps {io.github.jbondeson/jolt-sdl3 {:local/root "../jolt-sdl3"}}}
 ```
 
-`deps.edn` here declares `libSDL3` under `:jolt/native`; Jolt loads it before any
-`sdl3.*` namespace is required, in your project too. Nothing else to configure.
+That's all the setup there is. This library's `deps.edn` declares libSDL3 under
+`:jolt/native`, so Jolt loads it for your project before any `sdl3.*` namespace is
+required.
 
-Tasks (`jolt <task>`): `test` runs the suite headlessly; `hello`, `bounce`, `gpu-clear`,
-`tone` and `tray` run the examples; `gen` regenerates the raw layer from the installed headers.
+A few tasks are included (`jolt <task>`):
 
-## Conventions
+- `test` runs the test suite. It's headless, so no windows pop up.
+- `hello`, `bounce`, `gpu-clear`, `tone` and `tray` run the examples.
+- `gen` regenerates the raw layer from the SDL headers you have installed.
 
-**Errors.** A C function that answers `bool` for success raises an `ExceptionInfo` when
-it answers false; one that answers a pointer raises on NULL. The message is
-`"SDL_CreateWindow failed: <SDL_GetError>"` and the data holds `:sdl/fn` and
-`:sdl/error`. Predicates and lookups whose false or NULL is an answer, not a failure
-(`SDL_PollEvent`, `SDL_GetWindowFromID`), are wrapped as such — `has-event?`,
-`window-from-id` answering nil.
+## How it fits together
 
-**Names.** `SDL_CreateWindowAndRenderer` is `create-window-and-renderer` in
-`sdl3.raw.render` and the idiomatic `sdl3.render/create-window-and-renderer`. A
-state-changing call ends in `!` (`present!`, `destroy-window!`); a getter drops SDL's
-`Get` (`window-size`, `renderer-name`); a predicate ends in `?`.
+**Errors.** When a C function returns `false` or NULL to signal failure, the wrapper
+throws an `ExceptionInfo` instead. The message reads like `"SDL_CreateWindow failed:
+<what SDL_GetError said>"`, and the exception's data holds `:sdl/fn` and `:sdl/error`.
+Some functions use false or NULL as a normal answer rather than an error, like
+`SDL_PollEvent` or `SDL_GetWindowFromID`. Those don't throw: `has-event?` returns a
+boolean and `window-from-id` returns nil.
 
-**Flags and enums** are keywords from `sdl3.consts`, which holds every SDL enum and
-`#define` group as a map, computed by compiling the headers:
+**Names.** `SDL_CreateWindowAndRenderer` becomes `create-window-and-renderer`, both in
+`sdl3.raw.render` and in `sdl3.render`. In the `sdl3.*` layer, functions that change
+state end in `!` (`present!`, `destroy-window!`), getters drop SDL's `Get`
+(`window-size`, `renderer-name`), and predicates end in `?`.
+
+**Flags and enums** are keywords. `sdl3.consts` holds every SDL enum and `#define` group
+as a map, with the values taken from compiling the real headers:
 
 ```clojure
 (sdl3.consts/window-flags :resizable)     ;=> 32
@@ -85,16 +106,17 @@ state-changing call ends in `!` (`present!`, `destroy-window!`); a getter drops 
 (sdl/flags sdl3.consts/init-flags [:video :audio])
 ```
 
-An idiomatic function takes a keyword, a collection of keywords, or a plain integer
-wherever C takes flags, and answers a set of keywords wherever C answers them.
+Wherever C takes flags, you can pass a keyword, a collection of keywords, or a plain
+integer. Wherever C returns flags, you get back a set of keywords.
 
-**Pointers.** A window, renderer, texture or surface is the plain Jolt pointer (an
-integer) SDL handed out; free it with the matching `destroy-...!`. Memory SDL tells you
-to `SDL_free` is freed for you where the wrapper reads it (`sdl3.clipboard/text`,
-`sdl3.video/displays`), or with `sdl3.core/free!` / `take-string` where you hold it.
+**Pointers.** A window, renderer, texture or surface is simply the pointer SDL handed
+out, which in Jolt is an integer. Free it with the matching `destroy-...!` function.
+When SDL returns memory you're meant to `SDL_free`, the wrappers that read it free it for
+you (`sdl3.clipboard/text`, `sdl3.video/displays`). If you're holding such memory
+yourself, `sdl3.core/free!` and `take-string` take care of it.
 
-**Events** decode to maps with the C field names kebab-cased, enumerations as keywords,
-flags as sets and C strings read:
+**Events** arrive as maps. Field names are SDL's, kebab-cased, with enumerations as
+keywords, flags as sets, and C strings already read:
 
 ```clojure
 (ev/poll!)
@@ -104,104 +126,116 @@ flags as sets and C strings read:
 ;=> {:type :window-resized :window-id 1 :data1 800 :data2 600 ...}
 ```
 
-**Rects** are `{:x :y :w :h}` maps or `[x y w h]` vectors. `sdl3.render`'s drawing calls
-copy them into a scratch cell per call, so a frame of a few hundred rects allocates
-nothing on the Jolt side; the plural calls (`fill-rects!`, `draw-lines!`) also take the
-`[pointer count]` pair `sdl3.rect/frects` builds once in an arena, for the hot path.
+**Rects** can be `{:x :y :w :h}` maps or `[x y w h]` vectors. The drawing calls in
+`sdl3.render` copy each one into a reusable scratch buffer, so drawing a few hundred
+rects a frame doesn't allocate anything on the Jolt side. If you're drawing lots of
+rects every frame, the plural calls (`fill-rects!`, `draw-lines!`) also accept the
+`[pointer count]` pair that `sdl3.rect/frects` builds once in an arena.
 
-**Callbacks.** `sdl3.timer/add-timer!`, `sdl3.log/set-output-function!` and the audio
-stream callbacks wrap a Clojure fn as a `:collect-safe` C callback, since SDL calls them
-from threads Jolt did not start. Keep them short and hand work to the main loop with
-`sdl3.events/push-event!` or an atom. Callbacks SDL makes on the calling thread
-(`sdl3.io/open-io`, `sdl3.properties/keys`) are plain. The remaining callback-taking
-functions (`SDL_AddEventWatch`, `SDL_SetWindowHitTest`, ...) are in the raw layer; wrap
-them with `jolt.ffi/callback` the same way.
+**Callbacks.** SDL calls some callbacks from its own threads: timers
+(`sdl3.timer/add-timer!`), log output (`sdl3.log/set-output-function!`) and audio
+streams. Those wrappers mark the callback `:collect-safe` for you. Keep these callbacks
+short, and hand work back to your main loop with `sdl3.events/push-event!` or an atom.
+Callbacks SDL makes on your own thread, like `sdl3.io/open-io` and
+`sdl3.properties/keys`, need nothing special. A few callback-taking functions
+(`SDL_AddEventWatch`, `SDL_SetWindowHitTest`, ...) are only in the raw layer so far; you
+can wrap them with `jolt.ffi/callback` in the same way.
 
-**Structs as maps.** Create-info structs (the GPU's, virtual joysticks) take a map naming
-only the fields you care about; the rest are zero, which SDL reads as the default. Numbers
-are coerced to the field's type, nested structs are nested maps, and arrays SDL takes
-with a separate count are vectors of maps. `sdl3.core/alloc-fields` and `alloc-array`
-do this for any layout in the raw layer.
+**Structs as maps.** For create-info structs, like the GPU's or a virtual joystick's
+description, you pass a map with just the fields you care about. Everything else is
+zero, which SDL treats as the default. Numbers are converted to the field's type for you,
+nested structs are nested maps, and arrays that SDL pairs with a count are vectors of
+maps. If you need this for another struct from the raw layer, `sdl3.core/alloc-fields`
+and `alloc-array` do the same thing for any layout.
 
 ## Audio, input, GPU, storage and the desktop
+
+A quick tour of what else is in there:
 
 ```clojure
 (require '[sdl3.audio :as audio] '[sdl3.gamepad :as gp] '[sdl3.gpu :as gpu]
          '[sdl3.io :as io] '[sdl3.properties :as props])
 
-;; audio: streams convert between specs; bind one to a device and put! samples
+;; audio: streams convert between formats; bind one to a device and put! samples in
 (let [s (audio/open-device-stream :playback {:format :f32 :channels 1 :freq 48000})]
-  (audio/put! s (float-array 48000))            ; or a callback: (open-device-stream d spec f)
+  (audio/put! s (float-array 48000))            ; or pass a callback: (open-device-stream d spec f)
   (audio/resume-stream-device! s))
 (audio/load-wav "boom.wav")                     ;=> {:spec {:format :s16 :channels 2 :freq 44100} :data #bytes}
 
-;; gamepads: controls named by position, events decoded by sdl3.events
+;; gamepads: controls are named by position, and events arrive decoded
 (let [g (gp/open (first (gp/gamepads)))]
   (gp/button? g :south)                         ;=> true
   (gp/axis-normalized g :leftx)                 ;=> -0.25
   (gp/button-label g :south)                    ;=> :cross on a PlayStation pad
   (gp/rumble! g 0 30000 200))
 
-;; GPU: create-infos as maps, keywords for enums
+;; GPU: create-infos are maps, enums are keywords
 (let [dev (gpu/create-device {:shader-formats [:spirv :msl :dxil]})
       buf (gpu/create-buffer dev {:usage :vertex :size 24})]
   (gpu/upload! dev buf (float-array [-1 -1 3 -1 -1 3]))
   (gpu/create-texture dev {:format :r8g8b8a8-unorm :usage [:sampler] :width 256 :height 256}))
 
-;; IO streams: files, memory, or Clojure functions
+;; IO streams: files, memory, or your own Clojure functions
 (io/with-io [s (io/from-file "save.dat" "wb")]
   (io/write-num! s :u32-le 42))
 (io/load-file "level.bin")                      ;=> byte-array
 
-;; properties: typed values, keyword or string names
+;; properties: typed values, named by keyword or by SDL's string
 (props/with-properties [p {:window-create-title-string "hi"
                            :window-create-width-number 640
                            :window-create-height-number 480}]
   (sdl3.video/create-window-with-properties p))
 ```
 
-- **`sdl3.audio`**: drivers and devices, streams with put/get in any format and get/put
-  callbacks, WAV loading, sample conversion and mixing.
-- **`sdl3.joystick`**: numbered axes, buttons, hats and balls; rumble and LEDs; virtual
-  joysticks for tests and input injection.
-- **`sdl3.gamepad`**: named controls and state snapshots, button labels, mappings,
-  touchpads, sensors, rumble.
-- **`sdl3.gpu`**: devices, swapchains, every resource and pipeline, render, compute and
-  copy passes, fences, plus `upload!`, `upload-texture!`, `download` and
-  `download-texture` for one-off copies. Shaders are not compiled here; hand
+- **`sdl3.audio`**: drivers and devices, streams that take and give samples in any
+  format (with optional callbacks), WAV loading, sample conversion and mixing.
+- **`sdl3.joystick`**: numbered axes, buttons, hats and balls, plus rumble and LEDs. You
+  can also create virtual joysticks, which is handy for tests or injecting input.
+- **`sdl3.gamepad`**: named controls, state snapshots, button labels, mappings,
+  touchpads, sensors and rumble.
+- **`sdl3.gpu`**: devices, swapchains, every resource and pipeline type, render, compute
+  and copy passes, and fences. For one-off copies there's `upload!`, `upload-texture!`,
+  `download` and `download-texture`. Shaders aren't compiled here, so give
   `create-shader` SPIR-V, MSL, DXIL or DXBC.
-- **`sdl3.io`**: file and memory streams, typed little/big-endian numbers, whole-file
-  load and save, and `open-io` for streams backed by Clojure functions.
-- **`sdl3.properties`**: groups as maps in and out, typed `put!` and `get`.
-- **`sdl3.haptic`**: force-feedback effects as maps (`{:type :sine :period 100 ...}`),
-  simple rumble, gain and autocenter.
+- **`sdl3.io`**: file and memory streams, little- and big-endian numbers, whole-file load
+  and save, and `open-io` for streams backed by your own Clojure functions.
+- **`sdl3.properties`**: property groups as maps in and out, with typed `put!` and `get`.
+- **`sdl3.haptic`**: force-feedback effects written as maps (`{:type :sine :period 100
+  ...}`), simple rumble, gain and autocenter.
 - **`sdl3.sensor`**: device accelerometers and gyroscopes.
-- **`sdl3.camera`**: cameras, their formats and permission state, frames as surfaces
-  (`with-frame`).
-- **`sdl3.storage`**: title, user and directory containers with read, write, list,
-  glob and path info.
-- **`sdl3.tray`**: tray icons and menus, built from data with `build-menu!`.
-- **`sdl3.dialog`**: native open, save and folder dialogs, answered through a callback
-  or a promise (keep pumping events until it arrives).
-- **`sdl3.thread`**: SDL threads running Clojure fns (their value or exception comes back
-  from `wait-thread!`), mutexes, read-write locks, semaphores, conditions, and atomics in
-  native memory — for sharing with C; plain Jolt code should use Jolt's own.
-- **`sdl3.process`**: child processes with piped or inherited stdio, environment and
-  working directory, and `sh` for run-to-completion.
-- **`sdl3.asyncio`**: queued async reads, writes and whole-file loads with tagged results.
-- **`sdl3.hid`**: raw HID enumeration, reports and strings.
-- **`sdl3.system`**, **`sdl3.time`**, **`sdl3.touch`**, **`sdl3.pixels`**: CPU and memory,
-  locales, battery, URLs and shared objects; calendar date-times; touch devices and pens;
-  pixel formats and palettes. `sdl3.render/compose-blend-mode` and the Metal and Vulkan
-  helpers in `sdl3.video` round out the rest.
+- **`sdl3.camera`**: cameras, their formats and permission state, and frames as surfaces
+  (see `with-frame`).
+- **`sdl3.storage`**: title, user and directory containers you can read, write, list,
+  glob and inspect.
+- **`sdl3.tray`**: tray icons and menus, which you can describe as data with
+  `build-menu!`.
+- **`sdl3.dialog`**: native open, save and folder dialogs. The answer comes back through
+  a callback or a promise; keep pumping events until it arrives.
+- **`sdl3.thread`**: SDL threads that run Clojure functions (`wait-thread!` gives you
+  their return value, or rethrows their exception), plus mutexes, read-write locks,
+  semaphores, conditions and atomics in native memory. These are for sharing with C
+  code; for plain Jolt code, Jolt's own threads and locks are the better fit.
+- **`sdl3.process`**: child processes with piped or inherited stdio, a custom
+  environment and working directory, and `sh` for when you just want the output.
+- **`sdl3.asyncio`**: queued async reads, writes and whole-file loads, with tagged
+  results.
+- **`sdl3.hid`**: raw HID devices: enumeration, reports and device strings.
+- **`sdl3.system`**, **`sdl3.time`**, **`sdl3.touch`** and **`sdl3.pixels`** cover CPU
+  and memory info, locales, battery, opening URLs and loading shared objects; calendar
+  date-times; touch devices and pens; and pixel formats and palettes. Custom blend modes
+  live in `sdl3.render/compose-blend-mode`, and the Metal and Vulkan helpers are in
+  `sdl3.video`.
 
-The headless suite drives joysticks and gamepads through virtual devices, audio through
-SDL's dummy driver, storage through a temporary directory and tray menus through
-simulated clicks, and on Metal compiles and runs an MSL shader pipeline. Cameras, haptics
-and sensors are only enumerated, since opening them needs hardware or permission, and
-dialogs wait for a person, so the `tray` example is where to try them.
+The test suite gets a lot done without any special hardware. It drives joysticks and
+gamepads through virtual devices, audio through SDL's dummy driver, storage through a
+temporary directory, and tray menus through simulated clicks. On Metal it also compiles
+and runs a real MSL shader pipeline. Cameras, haptics and sensors are only listed, since
+opening them needs hardware or permission. Dialogs need a person to click them, so the
+`tray` example is the place to try those out.
 
-## The raw layer
+## Using the raw layer
+
+Each raw binding carries its C signature and types in its metadata:
 
 ```clojure
 (require '[sdl3.raw.video :as video] '[jolt.ffi :as ffi])
@@ -215,55 +249,63 @@ dialogs wait for a person, so the `tray` example is where to try them.
 (ffi/read p sdl3.raw.events/keyboard-event)         ;=> {:type 768 :scancode 4 :key 97 :mod 1 :down true ...}
 ```
 
-Type mapping: `bool` → `:bool`, `int`/`Uint32`/`float`... → the matching keyword,
-`const char *` → `:string` (copied in, decoded out), any other pointer → `:pointer`,
-enums → `:int`, `SDL_GUID` and other by-value structs → `[:by-value ...]`. A `char *`
-result (memory you must `SDL_free`) stays a `:pointer`. Functions that wait
-(`SDL_WaitEvent`, `SDL_Delay`, ...) are `:blocking`, so the collector is not pinned
-while they do. Variadic functions bind with a bare `:&`: `(log/log "%s" msg)`.
+C types map to Jolt's FFI types like this:
 
-Two things to know about calling raw bindings directly:
+- `bool` becomes `:bool`, and `int`, `Uint32`, `float` and friends become the matching
+  keyword.
+- `const char *` becomes `:string`, which is copied in and decoded on the way out. A
+  plain `char *` result stays a `:pointer`, because that's memory you need to `SDL_free`.
+- Every other pointer is a `:pointer`, and enums are `:int`.
+- `SDL_GUID` and other structs passed by value use `[:by-value ...]`.
+- Functions that wait, like `SDL_WaitEvent` and `SDL_Delay`, are marked `:blocking`, so
+  Jolt's garbage collector can keep running while they wait.
+- Variadic functions use a bare `:&`, as in `(log/log "%s" msg)`.
 
-- A `:float` or `:double` argument rejects an integer — pass `1.0`, not `1`. The
-  idiomatic wrappers coerce for you.
-- A binding for a function the loaded libSDL3 lacks (an older SDL3 than the headers
-  the code was generated from) loads fine and raises only when called.
+Two things are good to know when you call raw bindings directly:
 
-Not bound: the 7 `va_list` variants (`SDL_LogMessageV`, `SDL_vsnprintf`, ...), which
-Jolt cannot construct, and `SDL_CreateThread` and `SDL_CreateThreadWithProperties`, which
-are header macros over the `...Runtime` functions that are bound. Vulkan handle types
-(`VkInstance`, `VkSurfaceKHR`) bind as `:pointer`, which is their size on 64-bit targets.
+- A `:float` or `:double` argument won't accept an integer, so pass `1.0` rather than
+  `1`. The `sdl3.*` wrappers convert for you.
+- If your libSDL3 is older than the headers these bindings came from, a binding for a
+  function it lacks still loads fine. It only throws when you call it.
 
-## Regenerating
+A few functions aren't bound. The 7 `va_list` variants (`SDL_LogMessageV`,
+`SDL_vsnprintf`, ...) take an argument type that Jolt has no way to build, and each one
+has a `...` version that is bound. `SDL_CreateThread` and `SDL_CreateThreadWithProperties`
+exist only as header macros; the `...Runtime` functions they expand to are bound, and
+`sdl3.thread` uses those. Vulkan handle types (`VkInstance`, `VkSurfaceKHR`) bind as
+`:pointer`, which is their size on 64-bit systems.
 
-`tools/gen.clj` is a Jolt script. It reads `SDL3/SDL_*.h` from the include dir
-(`/opt/homebrew/include`, `/usr/local/include` or `/usr/include`, or the one you pass),
-parses the `extern SDL_DECLSPEC ... SDLCALL name(...)` declarations, typedefs, enums,
-structs and `#define` groups directly — SDL3's headers are regular enough not to need
-c2ffi — and compiles one C program with `clang` to get every constant's value and every
-struct's `sizeof`/`offsetof`. It writes:
+## Regenerating the bindings
+
+`tools/gen.clj` is a Jolt script. It reads the `SDL3/SDL_*.h` headers from your include
+directory (`/opt/homebrew/include`, `/usr/local/include` or `/usr/include`, or whichever
+one you pass). SDL3's headers are regular enough to parse directly, so there's no need
+for c2ffi. It picks up the function declarations, typedefs, enums, structs and `#define`
+groups, then compiles one small C program with `clang` to get every constant's value and
+every struct's size and field offsets. It writes:
 
 | Output | Contents |
 | --- | --- |
 | `src/sdl3/raw/<header>.clj` | the bindings and layouts for that header |
 | `src/sdl3/consts.clj` | enum and flag maps, hint and property strings |
 | `src/sdl3/raw/abi.clj` | the C compiler's sizes and offsets |
-| `test/sdl3/abi_test.clj` | asserts every layout matches them |
+| `test/sdl3/abi_test.clj` | a test that every layout matches them |
 
 ```
 jolt gen          # or: jolt tools/gen.clj /path/to/include .
 jolt test
 ```
 
-It prints what it skipped and why. After an SDL release, regenerate, run the tests and
-review the diff; new functions appear in the raw layer with no further work.
+The generator prints anything it skipped, along with the reason. When a new SDL release
+comes out, regenerate, run the tests and look over the diff. New functions show up in
+the raw layer without any extra work.
 
-## Layout
+## Project layout
 
 ```
 deps.edn            :jolt/native libSDL3, tasks
 tools/gen.clj       the generator
-src/sdl3/core.clj   errors, defsdl, flags, init/quit, hints   (start here)
+src/sdl3/core.clj   errors, defsdl, flags, init/quit, hints   (a good place to start reading)
 src/sdl3/{video,render,events,keyboard,mouse,rect,surface,timer,log,messagebox,clipboard,filesystem}.clj
 src/sdl3/{audio,joystick,gamepad,gpu,io,properties}.clj
 src/sdl3/{camera,haptic,sensor,storage,tray,dialog}.clj
@@ -271,23 +313,25 @@ src/sdl3/{thread,process,asyncio,hid,system,time,touch,pixels}.clj
 src/sdl3/consts.clj (generated)
 src/sdl3/raw/       (generated)
 examples/           hello, bounce, gpu-clear, tone, tray
-test/sdl3/          headless suite; test_runner.clj is the -main
+test/sdl3/          the headless suite; test_runner.clj is the entry point
 ```
 
 ## Status
 
-- Generated from SDL 3.4.16; tested on macOS arm64 with Jolt 0.8.10. Linux should work
-  as-is (the `:jolt/native` entry names `libSDL3.so.0`); Windows is declared but untested.
-- Extending the idiomatic layer is mostly `(core/defsdl name raw/name)` lines — see any
-  of the `sdl3.*` namespaces for the pattern, and `sdl3.core/defsdl` for the options.
-- Licensed under the zlib license (see LICENSE), the same as SDL; the generated files
-  carry SDL's notice there.
+- The bindings are generated from SDL 3.4.16 and tested on macOS arm64 with Jolt 0.8.10.
+  Linux should work as-is, since the `:jolt/native` entry names `libSDL3.so.0`. Windows
+  is declared too, but hasn't been tested yet.
+- Adding to the `sdl3.*` layer is mostly a matter of `(core/defsdl name raw/name)` lines.
+  Any of the `sdl3.*` namespaces shows the pattern, and `sdl3.core/defsdl` documents the
+  options.
+- The library is under the zlib license (see LICENSE), the same license as SDL. The
+  generated files carry SDL's notice there as well.
 
 ## AI use disclosure
 
 This library was written with AI assistance, using Anthropic's Claude Fable 5.1 and
 Claude Opus 5.5 through Claude Code. The models wrote the binding generator
-(`tools/gen.clj`), the idiomatic `sdl3.*` namespaces, the tests, the examples and this
-README. The raw layer under `src/sdl3/raw/` and `src/sdl3/consts.clj` is produced
-mechanically by the generator from the SDL3 headers, and its struct layouts are checked
-against the C compiler by `test/sdl3/abi_test.clj`.
+(`tools/gen.clj`), the `sdl3.*` namespaces, the tests, the examples and this README. The
+raw layer under `src/sdl3/raw/` and `src/sdl3/consts.clj` is produced mechanically by the
+generator from the SDL3 headers, and its struct layouts are checked against the C
+compiler by `test/sdl3/abi_test.clj`.
