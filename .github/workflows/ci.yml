@@ -120,6 +120,9 @@ jobs:
             Expand-Archive $zip -DestinationPath "$tools\$($lib.Name)"
             $dll = Get-ChildItem -Path "$tools\$($lib.Name)" -Recurse -Filter "$($lib.Name).dll" | Select-Object -First 1
             Add-Content $env:GITHUB_PATH $dll.DirectoryName
+            # SDL_image loads its codecs (WebP, AVIF, TIFF ...) on demand from optional\
+            $optional = Join-Path $dll.DirectoryName "optional"
+            if (Test-Path $optional) { Add-Content $env:GITHUB_PATH $optional }
           }
 
       - name: Test
