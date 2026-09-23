@@ -15,7 +15,12 @@
     (try
       (if-not (gpu/supports-shader-formats? [:spirv :msl :dxil])
         (println "sdl3.gpu-test: no GPU driver available; skipping")
-        (let [dev (gpu/create-device {:shader-formats [:spirv :msl :dxil]})]
+        ;; a driver can be present with no usable device behind it (a CI VM with no
+        ;; GPU), so a failed create skips too
+        (if-let [dev (try (gpu/create-device {:shader-formats [:spirv :msl :dxil]})
+                          (catch clojure.lang.ExceptionInfo e
+                            (println "sdl3.gpu-test: no GPU device (" (.getMessage e) "); skipping")
+                            nil))]
           (try (binding [*dev* dev] (f))
                (finally (gpu/destroy-device! dev)))))
       (finally (sdl/quit!)))))

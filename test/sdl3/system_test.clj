@@ -21,10 +21,13 @@
   (is (boolean? (sys/tablet?))))
 
 (deftest shared-objects
-  (let [lib (if (re-find #"(?i)mac" (System/getProperty "os.name")) "/usr/lib/libSystem.B.dylib" "libc.so.6")
+  (let [os (System/getProperty "os.name")
+        [lib sym] (cond (re-find #"(?i)mac" os) ["/usr/lib/libSystem.B.dylib" "strlen"]
+                        (re-find #"(?i)windows" os) ["kernel32.dll" "GetTickCount"]
+                        :else ["libc.so.6" "strlen"])
         so (sys/load-object lib)]
     (try
-      (is (pos? (sys/load-function so "strlen")))
+      (is (pos? (sys/load-function so sym)))
       (is (thrown? clojure.lang.ExceptionInfo (sys/load-function so "no_such_symbol_jolt")))
       (finally (sys/unload-object! so)))))
 

@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main, ci]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  JOLT_VERSION: "0.8.10"
+  SDL_VERSION: "3.4.16"
+
+jobs:
+  macos:
+    name: macOS (arm64)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Jolt and SDL3
+        run: brew install jolt-lang/jolt/jolt sdl3
+      - name: Versions
+        run: |
+          jolt --version
+          brew list --versions sdl3
+      - name: Test
+        run: jolt -M:test
+
+  linux:
+    name: Linux (x86_64)
+    runs-on: ubuntu-24.04
+    env:
+      # no display on the runner: SDL's offscreen driver creates windows in memory
+      SDL_VIDEO_DRIVER: offscreen
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies and software Vulkan
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build pkg-config \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev libxtst-dev \
+            libxkbcommon-dev libwayland-dev wayland-protocols libegl1-mesa-dev libgles2-mesa-dev \
+            libdbus-1-dev libudev-dev libasound2-dev libpulse-dev libpipewire-0.3-dev \
+            libvulkan-dev libvulkan1 mesa-vulkan-drivers
+
+      - name: Cache SDL3
+        id: sdl-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/sdl3
+          key: sdl3-${{ env.SDL_VERSION }}-ubuntu-24.04-v1
+
+      - name: Build SDL3
+        if: steps.sdl-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL -o sdl.tar.gz "https://github.com/libsdl-org/SDL/releases/download/release-${SDL_VERSION}/SDL3-${SDL_VERSION}.tar.gz"
+          tar xzf sdl.tar.gz
+          cmake -S "SDL3-${SDL_VERSION}" -B sdl-build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$HOME/sdl3" \
+            -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF -DSDL_STATIC=OFF
+          cmake --build sdl-build
+          cmake --install sdl-build
+
+      - name: Install Jolt
+        run: |
+          curl -sSL https://raw.githubusercontent.com/jolt-lang/jolt/main/install \
+            | bash -s -- --version "$JOLT_VERSION" --dir "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Test
+        run: |
+          export LD_LIBRARY_PATH="$HOME/sdl3/lib:${LD_LIBRARY_PATH:-}"
+          jolt --version
+          jolt -M:test
+
+  windows:
+    name: Windows (x64, experimental)
+    runs-on: windows-latest
+    # untested platform: report results without failing the workflow
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Jolt and SDL3
+        shell: pwsh
+        run: |
+          $tools = Join-Path $env:RUNNER_TEMP "tools"
+          New-Item -ItemType Directory -Force -Path $tools | Out-Null
+
+          $jolt = "jolt-v$env:JOLT_VERSION-x86_64-windows"
+          Invoke-WebRequest -Uri "https://github.com/jolt-lang/jolt/releases/download/v$env:JOLT_VERSION/$jolt.zip" -OutFile "$tools\jolt.zip"
+          Expand-Archive "$tools\jolt.zip" -DestinationPath $tools
+          Add-Content $env:GITHUB_PATH (Join-Path $tools $jolt)
+
+          Invoke-WebRequest -Uri "https://github.com/libsdl-org/SDL/releases/download/release-$env:SDL_VERSION/SDL3-$env:SDL_VERSION-win32-x64.zip" -OutFile "$tools\sdl.zip"
+          Expand-Archive "$tools\sdl.zip" -DestinationPath "$tools\sdl"
+          $dll = Get-ChildItem -Path "$tools\sdl" -Recurse -Filter SDL3.dll | Select-Object -First 1
+          Add-Content $env:GITHUB_PATH $dll.DirectoryName
+
+      - name: Test
+        shell: pwsh
+        run: |
+          jolt --version
+          jolt -M:test

@@ -70,6 +70,7 @@
     (try
       (is (au/stream-device-paused? s) "a device stream starts paused")
       (au/resume-stream-device! s)
-      (timer/delay! 250)
+      ;; poll rather than sleep a fixed time: a busy CI machine can be slow to start
+      (loop [waited 0] (when (and (zero? @calls) (< waited 3000)) (timer/delay! 10) (recur (+ waited 10))))
       (is (pos? @calls) "the dummy device pulled from the callback")
       (finally (au/destroy-stream! s)))))

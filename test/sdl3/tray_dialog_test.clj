@@ -12,8 +12,13 @@
 (use-fixtures :each (fn [f] (sdl/init! :video) (try (f) (finally (sdl/quit!)))))
 
 (deftest tray-menus
-  (let [t (tray/create-tray nil "jolt-sdl3 test")
-        clicks (atom [])]
+  ;; a tray needs a desktop shell (a Linux indicator service, Explorer on
+  ;; Windows); where there is none, SDL_CreateTray fails and the test skips
+  (when-let [t (try (tray/create-tray nil "jolt-sdl3 test")
+                    (catch clojure.lang.ExceptionInfo e
+                      (println "sdl3.tray-dialog-test: no system tray (" (.getMessage e) "); skipping")
+                      nil))]
+   (let [clicks (atom [])]
     (try
       (let [[a _ b more] (tray/build-menu! (tray/menu t)
                                            [{:label "A" :on-click #(swap! clicks conj (tray/label %))}
@@ -35,7 +40,7 @@
         (tray/on-click! a nil)
         (tray/click! a)
         (is (= 3 (count @clicks)) "a removed callback no longer fires"))
-      (finally (tray/destroy! t)))))
+      (finally (tray/destroy! t))))))
 
 (deftest dialog-filters-encode
   (let [[_ _ fp n _] (#'sdl3.dialog/setup {:filters [{:name "Images" :pattern "png;jpg"} {:name "All" :pattern "*"}]} nil)
