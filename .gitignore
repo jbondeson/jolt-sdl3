@@ -4,3 +4,6 @@ target/
 *.dylib
 .DS_Store
 examples/assets/
+# IDE files (IntelliJ / Cursive)
+.idea/
+*.iml
