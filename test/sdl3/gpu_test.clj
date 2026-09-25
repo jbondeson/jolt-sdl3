@@ -49,7 +49,8 @@
         (gpu/end-render-pass! (gpu/begin-render-pass cb [{:texture tex :clear-color [1.0 0.5 0 1] :load-op :clear :store-op :store}]))
         (gpu/submit! cb)
         (gpu/wait-for-idle! *dev*))
-      (is (= [255 128 0 255] (rgba (gpu/download-texture *dev* tex 2 2 1 1 4))))
+      ;; 0.5 is 127.5 of 255, which drivers round either way
+      (is (contains? #{[255 127 0 255] [255 128 0 255]} (rgba (gpu/download-texture *dev* tex 2 2 1 1 4))))
       (gpu/upload-texture! *dev* tex 1 1 1 1 (byte-array [10 20 30 40]))
       (is (= [10 20 30 40] (rgba (gpu/download-texture *dev* tex 1 1 1 1 4))))
       (finally (gpu/release-texture! *dev* tex)))))

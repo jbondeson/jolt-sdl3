@@ -10,7 +10,7 @@
   (->> (file-seq (java.io.File. ^String dir))
        (map str)
        (filter #(.endsWith ^String % ".clj"))
-       (remove #(re-find #"/(app|assets|run)\.clj$" %))
+       (remove #(re-find #"[/\\](app|assets|run)\.clj$" %))   ; Windows' separator is \
        count))
 
 (deftest every-example-loads
